@@ -1,0 +1,48 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# OBS / OBS-specific browser source cache (não deve ser commitado)
+obs-browser-cache/
+
+# Build artifacts (não usados no projeto, mas se algum dia forem gerados)
+dist/
+build/
+node_modules/
+
+# Backups e arquivos temporários
+*.bak
+*.tmp
+*.orig
+
+# Pastas ocultas de sistema
+._*/
+
+# ============================================================
+# Planos privados do mantenedor (open-core strategy)
+# ============================================================
+# Estes arquivos contêm planos detalhados de variantes, mapeamentos
+# de botões, decisões arquiteturais, e estratégia de monetização.
+# NÃO devem ser commitados para o repositório público.
+PRIVATE_PLANS.md
+private/
+.plans/
+*.private.md
+*.private.svg
+*.private.png
+
+# Variantes premium em desenvolvimento (decidir open-source vs closed)
+# Quando finalizada, mover para a pasta pública apropriada ou remover do ignore.
+premium/
+variants-premium/

@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubo Controller</title>
+    <style>
+        :root {
+            /*
+                Modelo oficial do overlay: 768x324 (aspect natural do controller, ~2.37:1).
+                O controller drawing preenche 100% do overlay (sem padding transparente).
+                Aspect escolhido para casar com a arte do bg_dark.png (crop 768x324 da
+                imagem-base 3840x2160) e evitar espaços transparentes como no 16:9.
+
+                Para escalar livremente no OBS:
+                - Defina a Browser Source com qualquer dimensão. O overlay auto-ajusta.
+                - Para resultado sem padding: use source com aspect ~2.37:1
+                  (768x324, 1536x648, 1920x810, 3840x1620).
+                - Para source 16:9: o overlay preenche a largura, com padding vertical.
+                - Ou use ?scale=2.0 para forçar escala manual, e ?fit=cover para preencher
+                  (cuidado: cover clipa os lados do controller, pode cortar LT/RT).
+
+                Para personalizar cores por botão, edite as variáveis --color-* abaixo.
+                Veja CUSTOMIZATION_GUIDE.md para exemplos de paletas e formas.
+            */
+
+            /* Imagem-base (artwork original). */
+            --base-width: 3840px;
+            --base-height: 2160px;
+
+            /* Coordenadas do crop do controller dentro da imagem-base. */
+            --crop-x: 1536px;
+            --crop-y: 1728px;
+
+            /* Controller drawing (crop do base image, mantido do legado). */
+            --controller-width: 768px;
+            --controller-height: 324px;
+
+            /* Overlay oficial = mesmo tamanho do controller drawing (sem padding transparente). */
+            --overlay-width: var(--controller-width);
+            --overlay-height: var(--controller-height);
+
+            /* Fator de escala dinâmico (auto-computado por JS, override via ?scale=). */
+            --scale: 1;
+
+            /*
+                Paleta padrão: preto e branco.
+                --accent é o fallback usado por qualquer botão sem cor própria definida.
+                --color-bg é apenas referência documental (o fundo real vem de masks/).
+            */
+            --accent: #FFFFFF;
+            --color-bg: #000000;
+
+            /*
+                Cores por botão. Cada um defaults para --accent (branco).
+                Para colorir: defina --color-a: #FF0000; etc.
+                Veja CUSTOMIZATION_GUIDE.md para exemplos.
+            */
+            --color-a: var(--accent);
+            --color-b: var(--accent);
+            --color-x: var(--accent);
+            --color-y: var(--accent);
+            --color-lb: var(--accent);
+            --color-rb: var(--accent);
+            --color-lt: var(--accent);
+            --color-rt: var(--accent);
+            --color-ls: var(--accent);
+            --color-rs: var(--accent);
+            --color-dpad: var(--accent);
+            --color-menu: var(--accent);
+            --color-view: var(--accent);
+
+            /*
+                Text labels por botão (Fase 1).
+                Defaults Xbox (A, B, X, Y, LB, RB, LT, RT).
+                Para trocar para PlayStation/Nintendo: use ?icons=playstation ou ?icons=nintendo na URL.
+                Para custom total: edite as variáveis abaixo.
+                Veja CUSTOMIZATION_GUIDE.md.
+            */
+            --label-a: "A";
+            --label-b: "B";
+            --label-x: "X";
+            --label-y: "Y";
+            --label-lb: "LB";
+            --label-rb: "RB";
+            --label-lt: "LT";
+            --label-rt: "RT";
+            --label-ls: "";       /* knobs geralmente não têm texto */
+            --label-rs: "";
+            --label-view: "";     /* ícone SVG a vir na Fase 3 */
+            --label-menu: "";     /* ícone SVG a vir na Fase 3 */
+
+            /* Estilo dos labels. */
+            --label-font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+            --label-size: 26px;
+            --label-size-small: 18px;
+            --label-weight: 700;
+
+            /* Propriedades visuais. */
+            --stroke: 5px;
+            --opacity: 0.80;
+            --analog-max-offset: 28.6667px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: transparent;
+            font-family: sans-serif;
+        }
+
+        body {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /*
+            Overlay oficial 768x324 (aspect natural do controller, ~2.37:1).
+            Escala dinamicamente para preencher a viewport (OBS Browser Source),
+            mantendo o aspect via min(scaleX, scaleY) por default (contain),
+            ou max() com ?fit=cover (pode clipar LT/RT).
+        */
+        .controller-overlay {
+            position: relative;
+            width: var(--overlay-width);
+            height: var(--overlay-height);
+            overflow: hidden;
+            opacity: var(--opacity);
+            transform: scale(var(--scale));
+            transform-origin: center center;
+        }
+
+        /*
+            Controller drawing preenche 100% do overlay (sem padding transparente).
+            Toda a posição absoluta dos botões abaixo referencia este stage.
+            Tamanho = 768x324 = overlay (mesmo aspect, zero padding).
+        */
+        .controller-stage {
+            position: absolute;
+            inset: 0;
+        }
+
+        /*
+            Crop central do layout base 3840x2160:
+            largura  = 20% da base = 768px  (x 1536..2304)
+            altura   = 15% da base = 324px  (y 1728..2052)
+            linha superior = 5% da base = 108px
+            linha inferior = 10% da base = 216px
+        */
+        .controller-bg {
+            position: absolute;
+            inset: 0;
+            background-image: url('masks/bg_dark.png');
+            background-size: var(--base-width) var(--base-height);
+            background-position: calc(var(--crop-x) * -1) calc(var(--crop-y) * -1);
+            background-repeat: no-repeat;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /*
+            Atribuição de --button-color por botão.
+            Tudo o que se segue (bordas, preenchimento, gradientes, canvas)
+            lê var(--button-color, var(--accent)).
+        */
+        .a { --button-color: var(--color-a); }
+        .b { --button-color: var(--color-b); }
+        .x { --button-color: var(--color-x); }
+        .y { --button-color: var(--color-y); }
+        .lb { --button-color: var(--color-lb); }
+        .rb { --button-color: var(--color-rb); }
+        .lt { --button-color: var(--color-lt); }
+        .rt { --button-color: var(--color-rt); }
+        .ls { --button-color: var(--color-ls); }
+        .rs { --button-color: var(--color-rs); }
+        .ls-boundary { --button-color: var(--color-ls); }
+        .rs-boundary { --button-color: var(--color-rs); }
+        .d-up,
+        .d-down,
+        .d-left,
+        .d-right { --button-color: var(--color-dpad); }
+        .view { --button-color: var(--color-view); }
+        .menu { --button-color: var(--color-menu); }
+
+        .button:not(svg) {
+            position: absolute;
+            border: var(--stroke) solid var(--button-color, var(--accent));
+            background: transparent;
+            pointer-events: none;
+            transition: background 0.08s ease-out, border-color 0.08s ease-out, transform 0.08s ease-out;
+        }
+
+        .button:not(svg).pressed {
+            background: var(--button-color, var(--accent));
+            border-color: var(--button-color, var(--accent));
+        }
+
+        /*
+            Text labels (Fase 1) — pseudo-elemento ::after posicionado no centro de cada botão.
+            - Default unpressed: label usa a cor do botão (--button-color).
+            - Pressed: label usa --color-bg para contrastar com o preenchimento colorido.
+            - SVG buttons (D-pad) não recebem label — o polígono é o próprio visual.
+        */
+        .button:not(svg)::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--button-color, var(--accent));
+            font-family: var(--label-font);
+            font-size: var(--label-size);
+            font-weight: var(--label-weight);
+            line-height: 1;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0.9;
+            user-select: none;
+            transition: color 0.08s ease-out;
+        }
+
+        .button:not(svg).pressed::after {
+            color: var(--color-bg);
+        }
+
+        /* Atribuição de label por botão (cada um lê sua variável --label-X). */
+        .a::after { content: var(--label-a, "A"); }
+        .b::after { content: var(--label-b, "B"); }
+        .x::after { content: var(--label-x, "X"); }
+        .y::after { content: var(--label-y, "Y"); }
+        .lb::after { content: var(--label-lb, "LB"); font-size: var(--label-size-small); }
+        .rb::after { content: var(--label-rb, "RB"); font-size: var(--label-size-small); }
+        .lt::after { content: var(--label-lt, "LT"); font-size: var(--label-size-small); }
+        .rt::after { content: var(--label-rt, "RT"); font-size: var(--label-size-small); }
+        .ls::after { content: var(--label-ls, ""); }
+        .rs::after { content: var(--label-rs, ""); }
+        .view::after { content: var(--label-view, ""); font-size: var(--label-size-small); }
+        .menu::after { content: var(--label-menu, ""); font-size: var(--label-size-small); }
+
+        svg.button {
+            position: absolute;
+            fill: transparent;
+            stroke: var(--button-color, var(--accent));
+            stroke-width: var(--stroke);
+            vector-effect: non-scaling-stroke;
+            overflow: visible;
+            pointer-events: none;
+            transition: fill 0.08s ease-out, stroke 0.08s ease-out;
+        }
+
+        svg.button.pressed {
+            fill: var(--button-color, var(--accent));
+            stroke: var(--button-color, var(--accent));
+        }
+
+        .analog-knob {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 66.6667%;
+            height: 66.6667%;
+            border-radius: 50%;
+            background: color-mix(in srgb, var(--button-color, var(--accent)) 50%, transparent);
+            border: var(--stroke) solid var(--button-color, var(--accent));
+            z-index: 4;
+            transform: translate(calc(-50% + var(--stick-x, 0px)), calc(-50% + var(--stick-y, 0px)));
+            transition: background 0.08s ease-out, border-color 0.08s ease-out, transform 0.05s ease-out !important;
+        }
+
+        .analog-knob.pressed {
+            background: var(--button-color, var(--accent)) !important;
+            border-color: var(--button-color, var(--accent)) !important;
+        }
+
+        /* Linha superior: 5% da base = 108px. */
+        .lt,
+        .rt {
+            width: 185px;
+            height: 62px;
+            border-radius: 12px;
+            z-index: 4;
+            overflow: hidden;
+            contain: layout paint;
+        }
+
+        .lt {
+            left: 10px;
+            top: 23px;
+        }
+
+        .rt {
+            left: 573px;
+            top: 23px;
+        }
+
+        .lb {
+            left: 210px;
+            top: 23px;
+            width: 92px;
+            height: 62px;
+            border-radius: 12px;
+            z-index: 3;
+        }
+
+        .rb {
+            left: 464px;
+            top: 23px;
+            width: 92px;
+            height: 62px;
+            border-radius: 12px;
+            z-index: 3;
+        }
+
+        .view {
+            left: 326px;
+            top: 25px;
+            width: 58px;
+            height: 58px;
+            border-radius: 999px 0 0 999px;
+            z-index: 3;
+        }
+
+        .menu {
+            left: 384px;
+            top: 25px;
+            width: 58px;
+            height: 58px;
+            border-radius: 0 999px 999px 0;
+            z-index: 3;
+        }
+
+        /* Gatilhos sensíveis à pressão: preenchimento de dentro para fora. */
+        .pressure-trigger,
+        .pressure-trigger.pressed {
+            background: transparent !important;
+            border-color: var(--button-color, var(--accent));
+        }
+
+        .trigger-fill {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: var(--pressure, 0%);
+            opacity: 0.72;
+            z-index: 2;
+            transition: width 0.05s linear, opacity 0.05s linear;
+        }
+
+        .trigger-fill::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .lt .trigger-fill {
+            right: 0;
+            background: linear-gradient(
+                90deg,
+                color-mix(in srgb, var(--button-color, var(--accent)) 88%, transparent),
+                color-mix(in srgb, var(--button-color, var(--accent)) 14%, transparent)
+            );
+        }
+
+        .lt .trigger-fill::after {
+            left: 0;
+            border-left: var(--stroke) solid var(--button-color, var(--accent));
+            box-shadow: 0 0 8px color-mix(in srgb, var(--button-color, var(--accent)) 45%, transparent);
+        }
+
+        .rt .trigger-fill {
+            left: 0;
+            background: linear-gradient(
+                90deg,
+                color-mix(in srgb, var(--button-color, var(--accent)) 14%, transparent),
+                color-mix(in srgb, var(--button-color, var(--accent)) 88%, transparent)
+            );
+        }
+
+        .rt .trigger-fill::after {
+            right: 0;
+            border-right: var(--stroke) solid var(--button-color, var(--accent));
+            box-shadow: 0 0 8px color-mix(in srgb, var(--button-color, var(--accent)) 45%, transparent);
+        }
+
+        .trigger-graph {
+            display: block;
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .pressure-trigger.pressed .trigger-fill {
+            opacity: 1;
+        }
+
+        .d-up {
+            left: 261.02px;
+            top: 136px;
+            width: 54px;
+            height: 80px;
+            overflow: visible;
+            z-index: 3;
+        }
+
+        .d-down {
+            left: 261.02px;
+            top: 216px;
+            width: 54px;
+            height: 80px;
+            overflow: visible;
+            z-index: 3;
+        }
+
+        .d-left {
+            left: 208px;
+            top: 189.02px;
+            width: 80px;
+            height: 54px;
+            overflow: visible;
+            z-index: 3;
+        }
+
+        .d-right {
+            left: 288px;
+            top: 189.02px;
+            width: 80px;
+            height: 54px;
+            overflow: visible;
+            z-index: 3;
+        }
+
+        /* ABXY em cruz no bloco virtual 160×160. */
+        .a {
+            left: 451.25px;
+            top: 238.5px;
+            width: 57.5px;
+            height: 57.5px;
+            border-radius: 50%;
+            z-index: 3;
+        }
+
+        .b {
+            left: 502.5px;
+            top: 187.25px;
+            width: 57.5px;
+            height: 57.5px;
+            border-radius: 50%;
+            z-index: 3;
+        }
+
+        .x {
+            left: 400px;
+            top: 187.25px;
+            width: 57.5px;
+            height: 57.5px;
+            border-radius: 50%;
+            z-index: 3;
+        }
+
+        .y {
+            left: 451.25px;
+            top: 136px;
+            width: 57.5px;
+            height: 57.5px;
+            border-radius: 50%;
+            z-index: 3;
+        }
+
+        .analog-boundary {
+            position: absolute;
+            border: var(--stroke) solid color-mix(in srgb, var(--button-color, var(--accent)) 30%, transparent);
+            border-radius: 50%;
+            background: transparent;
+            z-index: 3;
+        }
+
+        .ls-boundary {
+            left: 10px;
+            top: 120px;
+            width: 172px;
+            height: 172px;
+        }
+
+        .rs-boundary {
+            left: 586px;
+            top: 120px;
+            width: 172px;
+            height: 172px;
+        }
+
+        .controller-overlay.debug .button:not(svg) {
+            border-color: #ff00ff !important;
+            background: rgba(255, 0, 255, 0.1) !important;
+        }
+
+        .controller-overlay.debug svg.button {
+            stroke: #ff00ff !important;
+            fill: rgba(255, 0, 255, 0.1) !important;
+        }
+
+        .controller-overlay.debug .analog-boundary {
+            border-color: #00ffff !important;
+            background: rgba(0, 255, 255, 0.1) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="controller-overlay" id="controller-overlay">
+        <div class="controller-stage" id="controller-stage">
+            <div class="controller-bg" id="controller-bg" aria-hidden="true"></div>
+
+            <div class="button pressure-trigger lt" id="lt" aria-label="Gatilho esquerdo LT">
+                <div class="trigger-fill" aria-hidden="true"></div>
+                <canvas class="trigger-graph" width="185" height="62" aria-hidden="true"></canvas>
+            </div>
+            <div class="button pressure-trigger rt" id="rt" aria-label="Gatilho direito RT">
+                <div class="trigger-fill" aria-hidden="true"></div>
+                <canvas class="trigger-graph" width="185" height="62" aria-hidden="true"></canvas>
+            </div>
+
+            <div class="button lb" id="lb"></div>
+            <div class="button rb" id="rb"></div>
+            <div class="button view" id="view"></div>
+            <div class="button menu" id="menu"></div>
+
+            <svg class="button d-up" id="up" viewBox="-1 -1 102 102" preserveAspectRatio="none" overflow="visible" aria-hidden="true">
+                <polygon points="0,0 100,0 100,67.44 50,100 0,67.44" />
+            </svg>
+            <svg class="button d-down" id="down" viewBox="-1 -1 102 102" preserveAspectRatio="none" overflow="visible" aria-hidden="true">
+                <polygon points="50,0 100,32.56 100,100 0,100 0,32.56" />
+            </svg>
+            <svg class="button d-left" id="left" viewBox="-1 -1 102 102" preserveAspectRatio="none" overflow="visible" aria-hidden="true">
+                <polygon points="0,0 67.44,0 100,50 67.44,100 0,100" />
+            </svg>
+            <svg class="button d-right" id="right" viewBox="-1 -1 102 102" preserveAspectRatio="none" overflow="visible" aria-hidden="true">
+                <polygon points="32.56,0 100,0 100,100 32.56,100 0,50" />
+            </svg>
+
+            <div class="button a" id="a"></div>
+            <div class="button b" id="b"></div>
+            <div class="button x" id="x"></div>
+            <div class="button y" id="y"></div>
+
+            <div class="analog-boundary ls-boundary" id="ls-boundary">
+                <div class="button analog-knob ls" id="ls"></div>
+            </div>
+            <div class="analog-boundary rs-boundary" id="rs-boundary">
+                <div class="button analog-knob rs" id="rs"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (() => {
+            'use strict';
+
+            /*
+                Auto-escala do overlay para preencher a viewport (OBS Browser Source).
+                - Default (?fit=contain): scale = min(viewportW / 768, viewportH / 324),
+                  mantém aspect ~2.37:1, pode ter padding transparente.
+                - ?fit=cover: scale = max(scaleX, scaleY), preenche a viewport,
+                  pode CLIPAR os lados do controller (LT/RT cortados em source 16:9).
+                - Override manual: ?scale=1.5 força 1.5x (ignora fit).
+                - Resize listener garante reajuste dinâmico.
+            */
+            const OVERLAY_BASE_WIDTH = 768;
+            const OVERLAY_BASE_HEIGHT = 324;
+            const FIT_MODES = Object.freeze(['contain', 'cover']);
+
+            function readManualScale() {
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    const raw = params.get('scale');
+                    if (!raw) return null;
+                    const value = Number.parseFloat(raw);
+                    return Number.isFinite(value) && value > 0 ? value : null;
+                } catch (error) {
+                    return null;
+                }
+            }
+
+            function readFitMode() {
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    const raw = (params.get('fit') || 'contain').toLowerCase();
+                    return FIT_MODES.includes(raw) ? raw : 'contain';
+                } catch (error) {
+                    return 'contain';
+                }
+            }
+
+            function applyScale() {
+                const manual = readManualScale();
+                let scale;
+                if (manual !== null) {
+                    scale = manual;
+                } else {
+                    const fitMode = readFitMode();
+                    const scaleX = window.innerWidth / OVERLAY_BASE_WIDTH;
+                    const scaleY = window.innerHeight / OVERLAY_BASE_HEIGHT;
+                    scale = fitMode === 'cover'
+                        ? Math.max(scaleX, scaleY)
+                        : Math.min(scaleX, scaleY);
+                }
+                document.documentElement.style.setProperty('--scale', scale);
+            }
+
+            window.addEventListener('resize', applyScale);
+            window.addEventListener('pageshow', applyScale);
+            applyScale();
+
+            /*
+                Icon sets (Fase 2) — permite trocar os text labels dos botões via URL.
+                Use ?icons=xbox|playstation|nintendo|none na URL.
+                Default: xbox (se nenhum param informado).
+
+                O JS injeta as variáveis --label-* em :root. Isso tem precedência sobre
+                o CSS default, mas pode ser override editando :root no HTML (embora a
+                URL sempre vença depois do applyIconSet).
+
+                Mapeamento POSIÇÃO -> label (não índice -> label):
+                Xbox:        A=bottom, B=right, X=left, Y=top
+                PlayStation: ✕=bottom, ○=right, □=left, △=top
+                Nintendo:    B=bottom, A=right, Y=left, X=top (layout Nintendo)
+            */
+            const ICON_SETS = Object.freeze({
+                xbox: {
+                    '--label-a': '"A"',
+                    '--label-b': '"B"',
+                    '--label-x': '"X"',
+                    '--label-y': '"Y"',
+                    '--label-lb': '"LB"',
+                    '--label-rb': '"RB"',
+                    '--label-lt': '"LT"',
+                    '--label-rt': '"RT"'
+                },
+                playstation: {
+                    '--label-a': '"✕"',     /* Cross no slot bottom (A) */
+                    '--label-b': '"○"',     /* Circle no slot right (B) */
+                    '--label-x': '"□"',     /* Square no slot left (X) */
+                    '--label-y': '"△"',     /* Triangle no slot top (Y) */
+                    '--label-lb': '"L1"',
+                    '--label-rb': '"R1"',
+                    '--label-lt': '"L2"',
+                    '--label-rt': '"R2"'
+                },
+                nintendo: {
+                    '--label-a': '"B"',     /* B no slot bottom (Nintendo B = Xbox A position) */
+                    '--label-b': '"A"',     /* A no slot right */
+                    '--label-x': '"Y"',     /* Y no slot left */
+                    '--label-y': '"X"',     /* X no slot top */
+                    '--label-lb': '"L"',
+                    '--label-rb': '"R"',
+                    '--label-lt': '"ZL"',
+                    '--label-rt': '"ZR"'
+                },
+                none: {
+                    '--label-a': '""',
+                    '--label-b': '""',
+                    '--label-x': '""',
+                    '--label-y': '""',
+                    '--label-lb': '""',
+                    '--label-rb': '""',
+                    '--label-lt': '""',
+                    '--label-rt': '""'
+                }
+            });
+
+            function applyIconSet() {
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    const requested = (params.get('icons') || 'xbox').toLowerCase();
+                    const set = ICON_SETS[requested];
+                    if (!set) return;
+                    const root = document.documentElement;
+                    for (const [key, value] of Object.entries(set)) {
+                        root.style.setProperty(key, value);
+                    }
+                } catch (error) {
+                    /* silencioso — fallback para defaults do CSS */
+                }
+            }
+
+            applyIconSet();
+
+            const BUTTON_MAP = Object.freeze({
+                a: 0, b: 1, x: 2, y: 3,
+                lb: 4, rb: 5, lt: 6, rt: 7,
+                ls: 10, rs: 11,
+                menu: 9, view: 8,
+                up: 12, down: 13, left: 14, right: 15
+            });
+
+            const TRIGGER_BUTTONS = Object.freeze({
+                lt: 6,
+                rt: 7
+            });
+
+            const ANALOG_DEAD_ZONE = 0.05;
+            const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
+            const clampAxis = (value) => Math.min(1, Math.max(-1, value));
+
+            class XboxControllerOverlay {
+                constructor() {
+                    this.overlay = document.getElementById('controller-overlay');
+                    this.lsKnob = document.getElementById('ls');
+                    this.rsKnob = document.getElementById('rs');
+                    this.elements = Object.fromEntries(
+                        Object.keys(BUTTON_MAP).map((id) => [id, document.getElementById(id)])
+                    );
+                    this.triggerCanvases = {};
+                    this.triggerContexts = {};
+                    this.triggerColors = {};
+                    this.lastPressure = { lt: 0, rt: 0 };
+                    this.analogNeutral = {
+                        ls: { x: 0, y: 0 },
+                        rs: { x: 0, y: 0 }
+                    };
+                    this.analogNeutralCalibrated = false;
+
+                    this.prepareTriggerCanvases();
+                    this.resolveTriggerColors();
+                    this.resetAnalogSticks();
+                    this.bindDebugShortcut();
+                    this.animate = this.animate.bind(this);
+                    this.animate();
+                }
+
+                prepareTriggerCanvases() {
+                    for (const id of Object.keys(TRIGGER_BUTTONS)) {
+                        const canvas = this.elements[id]?.querySelector('canvas');
+                        if (!canvas) continue;
+
+                        this.triggerCanvases[id] = canvas;
+                        this.triggerContexts[id] = canvas.getContext('2d');
+                    }
+                }
+
+                /*
+                    Resolve a cor de cada gatilho uma vez (na construção).
+                    Usa um elemento temporário para que o browser interprete
+                    qualquer formato CSS (hex, named, rgb, var()) em rgb numérico,
+                    que o canvas consegue usar com alpha variável por frame.
+                */
+                resolveTriggerColors() {
+                    for (const id of Object.keys(TRIGGER_BUTTONS)) {
+                        const el = this.elements[id];
+                        if (!el) continue;
+                        const raw = getComputedStyle(el).getPropertyValue('--button-color').trim();
+                        this.triggerColors[id] = this.parseColorToRgb(raw);
+                    }
+                }
+
+                parseColorToRgb(color) {
+                    const fallback = { r: 255, g: 255, b: 255 };
+                    if (!color) return fallback;
+                    const probe = document.createElement('div');
+                    probe.style.color = color;
+                    document.body.appendChild(probe);
+                    const computed = getComputedStyle(probe).color;
+                    document.body.removeChild(probe);
+                    const match = computed.match(/\d+/g);
+                    if (!match || match.length < 3) return fallback;
+                    return {
+                        r: parseInt(match[0], 10),
+                        g: parseInt(match[1], 10),
+                        b: parseInt(match[2], 10)
+                    };
+                }
+
+                bindDebugShortcut() {
+                    this.overlay?.addEventListener('dblclick', () => {
+                        this.toggleDebug();
+                    });
+                }
+
+                toggleDebug() {
+                    this.overlay?.classList.toggle('debug');
+                }
+
+                enableDebug() {
+                    this.overlay?.classList.add('debug');
+                }
+
+                disableDebug() {
+                    this.overlay?.classList.remove('debug');
+                }
+
+                getGamepad() {
+                    const getGamepads = navigator.getGamepads?.bind(navigator);
+                    if (typeof getGamepads !== 'function') return null;
+
+                    return Array.from(getGamepads() || [])
+                        .find((gamepad) => gamepad && gamepad.buttons.length > 0) || null;
+                }
+
+                getGamepadTriggerPressure(id, button) {
+                    if (!button || typeof button.value !== 'number' || !Number.isFinite(button.value)) {
+                        return button?.pressed ? 1 : 0;
+                    }
+
+                    const value = clamp(button.value);
+                    if (value > 0) {
+                        return value;
+                    }
+
+                    return button.pressed ? 1 : 0;
+                }
+
+                setButtonState(id, pressed) {
+                    this.elements[id]?.classList.toggle('pressed', Boolean(pressed));
+                }
+
+                setTriggerPressure(id, pressure) {
+                    const el = this.elements[id];
+                    if (!el) return;
+
+                    const normalizedPressure = clamp(Number(pressure) || 0);
+                    this.lastPressure[id] = normalizedPressure;
+                    el.style.setProperty('--pressure', `${normalizedPressure * 100}%`);
+                    el.classList.toggle('pressed', normalizedPressure > 0.05);
+                }
+
+                normalizeAxis(value, neutral = 0) {
+                    const raw = Number(value);
+                    if (!Number.isFinite(raw)) return 0;
+
+                    const adjusted = clampAxis(raw - neutral);
+                    return Math.abs(adjusted) < ANALOG_DEAD_ZONE ? 0 : adjusted;
+                }
+
+                resetAnalogStick(id) {
+                    const knob = id === 'ls' ? this.lsKnob : this.rsKnob;
+                    knob?.style.setProperty('--stick-x', '0px');
+                    knob?.style.setProperty('--stick-y', '0px');
+                }
+
+                resetAnalogSticks() {
+                    this.resetAnalogStick('ls');
+                    this.resetAnalogStick('rs');
+                }
+
+                updateAnalogStick(id, x, y) {
+                    const knob = id === 'ls' ? this.lsKnob : this.rsKnob;
+                    if (!knob) return;
+
+                    const normalizedX = this.normalizeAxis(x);
+                    const normalizedY = this.normalizeAxis(y);
+                    const maxOffset = this.getMaxAnalogOffset();
+
+                    knob.style.setProperty('--stick-x', `${normalizedX * maxOffset}px`);
+                    knob.style.setProperty('--stick-y', `${normalizedY * maxOffset}px`);
+                }
+
+                getMaxAnalogOffset() {
+                    const value = getComputedStyle(this.overlay).getPropertyValue('--analog-max-offset');
+                    return Number.parseFloat(value) || 28.6667;
+                }
+
+                calibrateAnalogNeutral(gamepad) {
+                    if (this.analogNeutralCalibrated || !gamepad || gamepad.axes.length < 4) {
+                        return;
+                    }
+
+                    const axes = gamepad.axes;
+                    const nearNeutral = [0, 1, 2, 3].every((index) => Math.abs(axes[index]) < 0.20);
+                    if (!nearNeutral) return;
+
+                    this.analogNeutral = {
+                        ls: { x: axes[0], y: axes[1] },
+                        rs: { x: axes[2], y: axes[3] }
+                    };
+                    this.analogNeutralCalibrated = true;
+                }
+
+                updateGamepadState(gamepad) {
+                    if (!gamepad) {
+                        this.analogNeutralCalibrated = false;
+                        this.resetAnalogSticks();
+                        this.setTriggerPressure('lt', 0);
+                        this.setTriggerPressure('rt', 0);
+
+                        for (const id of Object.keys(BUTTON_MAP)) {
+                            this.setButtonState(id, false);
+                        }
+                        return;
+                    }
+
+                    for (const [id, index] of Object.entries(BUTTON_MAP)) {
+                        const button = gamepad.buttons[index];
+                        if (!button) continue;
+
+                        if (Object.prototype.hasOwnProperty.call(TRIGGER_BUTTONS, id)) {
+                            this.setTriggerPressure(id, this.getGamepadTriggerPressure(id, button));
+                        } else {
+                            this.setButtonState(id, button.pressed || button.value > 0.1);
+                        }
+                    }
+                }
+
+                updateAnalogState(gamepad) {
+                    this.calibrateAnalogNeutral(gamepad);
+
+                    if (!gamepad) {
+                        return;
+                    }
+
+                    if (gamepad.axes.length >= 2) {
+                        this.updateAnalogStick(
+                            'ls',
+                            this.normalizeAxis(gamepad.axes[0], this.analogNeutral.ls.x),
+                            this.normalizeAxis(gamepad.axes[1], this.analogNeutral.ls.y)
+                        );
+                    }
+
+                    if (gamepad.axes.length >= 4) {
+                        this.updateAnalogStick(
+                            'rs',
+                            this.normalizeAxis(gamepad.axes[2], this.analogNeutral.rs.x),
+                            this.normalizeAxis(gamepad.axes[3], this.analogNeutral.rs.y)
+                        );
+                    }
+                }
+
+                drawTriggerGraph(id) {
+                    const canvas = this.triggerCanvases[id];
+                    const context = this.triggerContexts[id];
+                    if (!canvas || !context) return;
+
+                    const width = canvas.width;
+                    const height = canvas.height;
+                    const pressure = this.lastPressure[id] || 0;
+                    const now = performance.now();
+                    const samples = 32;
+                    const baseAmplitude = height * 0.08;
+                    const pressureAmplitude = height * (0.06 + pressure * 0.34);
+                    const pulse = 0.70 + pressure * 0.65;
+                    const jitter = 0.18 + pressure * 0.82;
+
+                    context.clearRect(0, 0, width, height);
+                    context.save();
+                    context.beginPath();
+
+                    for (let sample = 0; sample <= samples; sample += 1) {
+                        const progress = sample / samples;
+                        const x = id === 'lt' ? width * (1 - progress) : width * progress;
+                        const wave = (
+                            Math.sin(progress * Math.PI * 4 + now * 0.006) * 0.45 +
+                            Math.sin(progress * Math.PI * 10 - now * 0.004) * 0.22 +
+                            Math.sin(progress * Math.PI * 18 + now * 0.003) * jitter
+                        );
+                        const y = (height / 2) + ((baseAmplitude + pressureAmplitude) * wave * pulse);
+
+                        if (sample === 0) {
+                            context.moveTo(x, y);
+                        } else {
+                            context.lineTo(x, y);
+                        }
+                    }
+
+                    const color = this.triggerColors[id] || { r: 255, g: 255, b: 255 };
+                    const alpha = 0.22 + pressure * 0.68;
+                    context.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+                    context.lineWidth = Math.max(1, height * (0.018 + pressure * 0.032));
+                    context.stroke();
+                    context.restore();
+                }
+
+                update() {
+                    const gamepad = this.getGamepad();
+                    this.updateGamepadState(gamepad);
+                    this.updateAnalogState(gamepad);
+                }
+
+                animate() {
+                    this.update();
+                    this.drawTriggerGraph('lt');
+                    this.drawTriggerGraph('rt');
+                    requestAnimationFrame(() => this.animate());
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', () => {
+                window.xboxOverlay = new XboxControllerOverlay();
+            });
+        })();
+    </script>
+</body>
+</html>
