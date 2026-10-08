@@ -2,7 +2,7 @@
 
 This document lists planned variants, future improvements, and how to contribute new variants. There's no commitment to timelines — it's a statement of intent and a panel of opportunities for anyone who wants to pick them up.
 
-**Versioning:** `v1.YYMM.XXX` (see [AGENT.md](AGENT.md#3-versioning-policy-v1yymmxxx) and [CHANGELOG.md](CHANGELOG.md)). Current build: `v1.2610.001` (October 2026, Sprint 001).
+**Versioning:** `v1.YYMM.XXX` (see [AGENT.md](AGENT.md#3-versioning-policy-v1yymmxxx) and [CHANGELOG.md](CHANGELOG.md)). Current build: `v1.2610.002` (October 2026, Sprint 002).
 
 ---
 
@@ -36,7 +36,7 @@ This document lists planned variants, future improvements, and how to contribute
 | Sprite pack guide (Phase 5 docs)    | ✅ docs | [LABEL_PACKS_GUIDE.md](LABEL_PACKS_GUIDE.md) + `masks/labels/sprite_example.svg` |
 | Sprite pack runtime (Phase 5 impl) | 🟡 planned | Model ready, `<use>` HTML integration pending              |
 | Inline SVG icons for View/Menu (Phase 3) | 🟡 planned | Inline SVG in HTML, replacing empty `--label-view`           |
-| Doc/code consistency (Track C cleanup) | 🟡 debt | `masks/README.md` and `DESIGN_GUIDE.md` still reference the removed `bg_dark.png`. Logged in [CHANGELOG.md](CHANGELOG.md) v1.2610.001. |
+| Doc/code consistency (Track C cleanup) | ✅ resolved in v1.2610.002 | `masks/README.md` and `DESIGN_GUIDE.md` rewritten for Track C; `docs/AUDIT.md` and `docs/AUDIT_PLAN.md` received historical-note headers. |
 
 ---
 
@@ -67,7 +67,6 @@ These are infrastructure improvements that benefit any future variant:
 
 | Improvement                           | Priority  | Difficulty | Notes                                                   |
 | ------------------------------------- | --------- | ---------- | ------------------------------------------------------- |
-| Doc/code consistency (Track C cleanup) | **High**  | Low        | `masks/README.md` and `DESIGN_GUIDE.md` still describe the removed `bg_dark.png`. Rewrite for Track C. Logged in v1.2610.001. |
 | Multi-gamepad support                  | Medium    | Low        | `?gamepad=2` URL param selects index                   |
 | Auto light/dark theme                  | Low       | Low        | `prefers-color-scheme` in CUSTOMIZATION_GUIDE.md       |
 | `devicePixelRatio` on trigger canvas   | Low       | Low        | Crisp rendering on retina/4K                           |
