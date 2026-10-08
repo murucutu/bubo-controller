@@ -1,1004 +1,1050 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bubo Controller</title>
     <style>
         :root {
-            /*
-                Modelo oficial do overlay: 768x324 (aspect natural do controller, ~2.37:1).
-                O controller drawing preenche 100% do overlay (sem padding transparente).
-                Aspect escolhido para casar com a arte do bg_dark.png (crop 768x324 da
-                imagem-base 3840x2160) e evitar espaços transparentes como no 16:9.
-
-                Para escalar livremente no OBS:
-                - Defina a Browser Source com qualquer dimensão. O overlay auto-ajusta.
-                - Para resultado sem padding: use source com aspect ~2.37:1
-                  (768x324, 1536x648, 1920x810, 3840x1620).
-                - Para source 16:9: o overlay preenche a largura, com padding vertical.
-                - Ou use ?scale=2.0 para forçar escala manual, e ?fit=cover para preencher
-                  (cuidado: cover clipa os lados do controller, pode cortar LT/RT).
-
-                Para personalizar cores por botão, edite as variáveis --color-* abaixo.
-                Veja CUSTOMIZATION_GUIDE.md para exemplos de paletas e formas.
-            */
-
-            /* Imagem-base (artwork original). */
-            --base-width: 3840px;
-            --base-height: 2160px;
-
-            /* Coordenadas do crop do controller dentro da imagem-base. */
-            --crop-x: 1536px;
-            --crop-y: 1728px;
-
-            /* Controller drawing (crop do base image, mantido do legado). */
-            --controller-width: 768px;
-            --controller-height: 324px;
-
-            /* Overlay oficial = mesmo tamanho do controller drawing (sem padding transparente). */
-            --overlay-width: var(--controller-width);
-            --overlay-height: var(--controller-height);
-
-            /* Fator de escala dinâmico (auto-computado por JS, override via ?scale=). */
+            --overlay-width: 768px;
+            --overlay-height: 324px;
             --scale: 1;
-
-            /*
-                Paleta padrão: preto e branco.
-                --accent é o fallback usado por qualquer botão sem cor própria definida.
-                --color-bg é apenas referência documental (o fundo real vem de masks/).
-            */
             --accent: #FFFFFF;
             --color-bg: #000000;
-
-            /*
-                Cores por botão. Cada um defaults para --accent (branco).
-                Para colorir: defina --color-a: #FF0000; etc.
-                Veja CUSTOMIZATION_GUIDE.md para exemplos.
-            */
             --color-a: var(--accent);
             --color-b: var(--accent);
             --color-x: var(--accent);
             --color-y: var(--accent);
+            --trail-color-1: var(--accent);
+            --trail-color-2: var(--accent);
+            --trail-color-3: var(--accent);
+            --trail-color-4: var(--accent);
             --color-lb: var(--accent);
             --color-rb: var(--accent);
             --color-lt: var(--accent);
             --color-rt: var(--accent);
             --color-ls: var(--accent);
             --color-rs: var(--accent);
+            --color-stick: var(--accent);
             --color-dpad: var(--accent);
-            --color-menu: var(--accent);
             --color-view: var(--accent);
-
-            /*
-                Text labels por botão (Fase 1).
-                Defaults Xbox (A, B, X, Y, LB, RB, LT, RT).
-                Para trocar para PlayStation/Nintendo: use ?icons=playstation ou ?icons=nintendo na URL.
-                Para custom total: edite as variáveis abaixo.
-                Veja CUSTOMIZATION_GUIDE.md.
-            */
-            --label-a: "A";
-            --label-b: "B";
-            --label-x: "X";
-            --label-y: "Y";
-            --label-lb: "LB";
-            --label-rb: "RB";
-            --label-lt: "LT";
-            --label-rt: "RT";
-            --label-ls: "";       /* knobs geralmente não têm texto */
-            --label-rs: "";
-            --label-view: "";     /* ícone SVG a vir na Fase 3 */
-            --label-menu: "";     /* ícone SVG a vir na Fase 3 */
-
-            /* Estilo dos labels. */
+            --color-menu: var(--accent);
+            --color-l3: var(--accent);
+            --color-r3: var(--accent);
+            --bg-opacity: 0.5;
+            --button-fill-opacity: 0.5;
+            --button-pressed-opacity: 1;
+            --knob-fill-opacity: 0.4;
+            --knob-pressed-opacity: 1;
             --label-font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-            --label-size: 26px;
-            --label-size-small: 18px;
+            --label-size: 22px;
+            --label-size-small: 16px;
             --label-weight: 700;
-
-            /* Propriedades visuais. */
-            --stroke: 5px;
-            --opacity: 0.80;
-            --analog-max-offset: 28.6667px;
+            --label-a: "A"; --label-b: "B"; --label-x: "X"; --label-y: "Y";
+            --label-lb: "LB"; --label-rb: "RB";
+            --label-lt: "LT"; --label-rt: "RT";
+            --label-l3: "L3"; --label-r3: "R3";
+            --label-view: ""; --label-menu: "";
+            --trigger-pressure: 0%;
+            --stick-trail-length: 30;
+            --stick-trail-fade: 0.04;
+            --stick-trail-blur: 12px;
+            --stick-trail-radius: 12;
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%;
+            overflow: hidden; background: transparent;
+            font-family: var(--label-font);
         }
-
-        html,
         body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: transparent;
-            font-family: sans-serif;
+            position: relative; display: flex;
+            align-items: center; justify-content: center;
         }
-
-        body {
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /*
-            Overlay oficial 768x324 (aspect natural do controller, ~2.37:1).
-            Escala dinamicamente para preencher a viewport (OBS Browser Source),
-            mantendo o aspect via min(scaleX, scaleY) por default (contain),
-            ou max() com ?fit=cover (pode clipar LT/RT).
-        */
         .controller-overlay {
             position: relative;
-            width: var(--overlay-width);
-            height: var(--overlay-height);
-            overflow: hidden;
-            opacity: var(--opacity);
+            width: var(--overlay-width); height: var(--overlay-height);
+            overflow: hidden; opacity: 0.85;
             transform: scale(var(--scale));
             transform-origin: center center;
         }
-
-        /*
-            Controller drawing preenche 100% do overlay (sem padding transparente).
-            Toda a posição absoluta dos botões abaixo referencia este stage.
-            Tamanho = 768x324 = overlay (mesmo aspect, zero padding).
-        */
-        .controller-stage {
-            position: absolute;
-            inset: 0;
+        .controller-svg {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%; overflow: visible;
         }
 
-        /*
-            Crop central do layout base 3840x2160:
-            largura  = 20% da base = 768px  (x 1536..2304)
-            altura   = 15% da base = 324px  (y 1728..2052)
-            linha superior = 5% da base = 108px
-            linha inferior = 10% da base = 216px
-        */
-        .controller-bg {
-            position: absolute;
-            inset: 0;
-            background-image: url('masks/bg_dark.png');
-            background-size: var(--base-width) var(--base-height);
-            background-position: calc(var(--crop-x) * -1) calc(var(--crop-y) * -1);
-            background-repeat: no-repeat;
-            z-index: 1;
-            pointer-events: none;
+        /* ═══ BACKGROUND RECT ═══ */
+        .controller-svg > g > rect {
+            fill: var(--color-bg);
+            fill-opacity: var(--bg-opacity);
         }
 
-        /*
-            Atribuição de --button-color por botão.
-            Tudo o que se segue (bordas, preenchimento, gradientes, canvas)
-            lê var(--button-color, var(--accent)).
-        */
-        .a { --button-color: var(--color-a); }
-        .b { --button-color: var(--color-b); }
-        .x { --button-color: var(--color-x); }
-        .y { --button-color: var(--color-y); }
-        .lb { --button-color: var(--color-lb); }
-        .rb { --button-color: var(--color-rb); }
-        .lt { --button-color: var(--color-lt); }
-        .rt { --button-color: var(--color-rt); }
-        .ls { --button-color: var(--color-ls); }
-        .rs { --button-color: var(--color-rs); }
-        .ls-boundary { --button-color: var(--color-ls); }
-        .rs-boundary { --button-color: var(--color-rs); }
-        .d-up,
-        .d-down,
-        .d-left,
-        .d-right { --button-color: var(--color-dpad); }
-        .view { --button-color: var(--color-view); }
-        .menu { --button-color: var(--color-menu); }
+        /* ═══ BUTTON STYLE ═══
+           Each button <g> has 2 path/circle children:
+             :nth-child(1) = OUTER (fill = black 40%, white 100% pressed)
+             :nth-child(2) = INNER (outline = white/colored, always 100%)
+           We use :nth-child(1) and :nth-child(2) instead of :first-child
+           and :last-child because addLabels() appends <text> as :nth-child(3),
+           which would steal :last-child from the outline path. */
 
-        .button:not(svg) {
-            position: absolute;
-            border: var(--stroke) solid var(--button-color, var(--accent));
-            background: transparent;
-            pointer-events: none;
-            transition: background 0.08s ease-out, border-color 0.08s ease-out, transform 0.08s ease-out;
+        /* nth-child(1) = button fill.
+           fill-rule: nonzero converts ring paths (arcade) to solid discs.
+           Xbox uses <circle> which is already solid — nonzero is a no-op. */
+        .controller-svg g[id] > :nth-child(1) {
+            fill: var(--color-bg) !important;
+            fill-opacity: var(--button-fill-opacity);
+            fill-rule: nonzero !important;
+            transition: fill-opacity 0.08s ease-out;
+        }
+        /* nth-child(2) = button outline */
+        .controller-svg g[id] > :nth-child(2) {
+            fill: var(--button-color, var(--accent)) !important;
+            fill-opacity: 1;
+            transition: fill 0.08s ease-out;
+        }
+        /* Per-button outline color. */
+        .controller-svg g#a { --button-color: var(--color-a); }
+        .controller-svg g#b { --button-color: var(--color-b); }
+        .controller-svg g#x { --button-color: var(--color-x); }
+        .controller-svg g#y { --button-color: var(--color-y); }
+        .controller-svg g#lb { --button-color: var(--color-lb); }
+        .controller-svg g#rb { --button-color: var(--color-rb); }
+        .controller-svg g#lt { --button-color: var(--color-lt); }
+        .controller-svg g#rt { --button-color: var(--color-rt); }
+        .controller-svg g#up, .controller-svg g#down,
+        .controller-svg g#left, .controller-svg g#right { --button-color: var(--color-dpad); }
+        .controller-svg g#view { --button-color: var(--color-view); }
+        .controller-svg g#menu { --button-color: var(--color-menu); }
+        .controller-svg g#l3 { --button-color: var(--color-l3); }
+        .controller-svg g#r3 { --button-color: var(--color-r3); }
+
+        /* Pressed: fill becomes outline color at 100%. */
+        .controller-svg g[id].pressed > :nth-child(1) {
+            fill: var(--button-color, var(--accent)) !important;
+            fill-opacity: var(--button-pressed-opacity) !important;
         }
 
-        .button:not(svg).pressed {
-            background: var(--button-color, var(--accent));
-            border-color: var(--button-color, var(--accent));
+        /* ═══ LT/RT (Xbox only) — NO fill, only wave effect ═══ */
+        .controller-overlay.controller-xbox .controller-svg g#lt > :nth-child(1),
+        .controller-overlay.controller-xbox .controller-svg g#rt > :nth-child(1) {
+            fill: none !important;
+            fill-opacity: 0 !important;
+        }
+        .controller-overlay.controller-xbox .controller-svg g#lt.pressed > :nth-child(1),
+        .controller-overlay.controller-xbox .controller-svg g#rt.pressed > :nth-child(1) {
+            fill: none !important;
+            fill-opacity: 0 !important;
         }
 
-        /*
-            Text labels (Fase 1) — pseudo-elemento ::after posicionado no centro de cada botão.
-            - Default unpressed: label usa a cor do botão (--button-color).
-            - Pressed: label usa --color-bg para contrastar com o preenchimento colorido.
-            - SVG buttons (D-pad) não recebem label — o polígono é o próprio visual.
-        */
-        .button:not(svg)::after {
-            content: "";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: var(--button-color, var(--accent));
+        /* ═══ KNOBS ═══
+           Xbox knobs: white 40%, 100% on L3/R3.
+           Arcade knob: white 100% always. */
+        .controller-svg g#left_joy > :nth-child(1),
+        .controller-svg g#right_joy > :nth-child(1) {
+            fill: var(--accent) !important;
+            fill-opacity: var(--knob-fill-opacity);
+            transition: fill-opacity 0.08s ease-out;
+        }
+        .controller-svg g#left_joy > :nth-child(2),
+        .controller-svg g#right_joy > :nth-child(2) {
+            fill: var(--accent) !important;
+            fill-opacity: 1;
+        }
+        .controller-svg g#left_joy.pressed > :nth-child(1),
+        .controller-svg g#right_joy.pressed > :nth-child(1) {
+            fill: var(--accent) !important;
+            fill-opacity: var(--knob-pressed-opacity) !important;
+        }
+        .controller-svg g#joy > :nth-child(1),
+        .controller-svg g#joy > :nth-child(2) {
+            fill: var(--accent) !important;
+            fill-opacity: 1;
+        }
+
+        /* ═══ BOUNDARIES — outline only (white), no fill ═══ */
+        .controller-svg g[id$="_reach"] > :nth-child(1),
+        .controller-svg g#joy_reach > :nth-child(1) {
+            fill: none !important;
+        }
+        .controller-svg g[id$="_reach"] > :nth-child(2),
+        .controller-svg g#joy_reach > :nth-child(2) {
+            fill: var(--accent) !important;
+            fill-opacity: 1;
+        }
+
+        /* Knob movement transition. */
+        .controller-svg g#left_joy,
+        .controller-svg g#right_joy,
+        .controller-svg g#joy {
+            transition: transform 0.05s ease-out;
+        }
+
+        /* ═══ LABELS (nth-child(3)+) ═══ */
+        .controller-svg g[id] text {
+            fill: var(--accent);
+            fill-opacity: 0.9;
             font-family: var(--label-font);
-            font-size: var(--label-size);
             font-weight: var(--label-weight);
-            line-height: 1;
+            text-anchor: middle;
+            dominant-baseline: central;
             pointer-events: none;
-            z-index: 5;
-            opacity: 0.9;
-            user-select: none;
-            transition: color 0.08s ease-out;
+            transition: fill-opacity 0.08s ease-out;
+        }
+        .controller-svg g[id].pressed text {
+            fill: var(--color-bg);
+            fill-opacity: 1;
         }
 
-        .button:not(svg).pressed::after {
-            color: var(--color-bg);
+        /* ═══ TRIGGER OVERLAYS (Xbox LT/RT) ═══ */
+        .trigger-overlay {
+            position: absolute; overflow: hidden;
+            pointer-events: none; z-index: 10;
         }
-
-        /* Atribuição de label por botão (cada um lê sua variável --label-X). */
-        .a::after { content: var(--label-a, "A"); }
-        .b::after { content: var(--label-b, "B"); }
-        .x::after { content: var(--label-x, "X"); }
-        .y::after { content: var(--label-y, "Y"); }
-        .lb::after { content: var(--label-lb, "LB"); font-size: var(--label-size-small); }
-        .rb::after { content: var(--label-rb, "RB"); font-size: var(--label-size-small); }
-        .lt::after { content: var(--label-lt, "LT"); font-size: var(--label-size-small); }
-        .rt::after { content: var(--label-rt, "RT"); font-size: var(--label-size-small); }
-        .ls::after { content: var(--label-ls, ""); }
-        .rs::after { content: var(--label-rs, ""); }
-        .view::after { content: var(--label-view, ""); font-size: var(--label-size-small); }
-        .menu::after { content: var(--label-menu, ""); font-size: var(--label-size-small); }
-
-        svg.button {
-            position: absolute;
-            fill: transparent;
-            stroke: var(--button-color, var(--accent));
-            stroke-width: var(--stroke);
-            vector-effect: non-scaling-stroke;
-            overflow: visible;
-            pointer-events: none;
-            transition: fill 0.08s ease-out, stroke 0.08s ease-out;
-        }
-
-        svg.button.pressed {
-            fill: var(--button-color, var(--accent));
-            stroke: var(--button-color, var(--accent));
-        }
-
-        .analog-knob {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            width: 66.6667%;
-            height: 66.6667%;
-            border-radius: 50%;
-            background: color-mix(in srgb, var(--button-color, var(--accent)) 50%, transparent);
-            border: var(--stroke) solid var(--button-color, var(--accent));
-            z-index: 4;
-            transform: translate(calc(-50% + var(--stick-x, 0px)), calc(-50% + var(--stick-y, 0px)));
-            transition: background 0.08s ease-out, border-color 0.08s ease-out, transform 0.05s ease-out !important;
-        }
-
-        .analog-knob.pressed {
-            background: var(--button-color, var(--accent)) !important;
-            border-color: var(--button-color, var(--accent)) !important;
-        }
-
-        /* Linha superior: 5% da base = 108px. */
-        .lt,
-        .rt {
-            width: 185px;
-            height: 62px;
-            border-radius: 12px;
-            z-index: 4;
-            overflow: hidden;
-            contain: layout paint;
-        }
-
-        .lt {
-            left: 10px;
-            top: 23px;
-        }
-
-        .rt {
-            left: 573px;
-            top: 23px;
-        }
-
-        .lb {
-            left: 210px;
-            top: 23px;
-            width: 92px;
-            height: 62px;
-            border-radius: 12px;
-            z-index: 3;
-        }
-
-        .rb {
-            left: 464px;
-            top: 23px;
-            width: 92px;
-            height: 62px;
-            border-radius: 12px;
-            z-index: 3;
-        }
-
-        .view {
-            left: 326px;
-            top: 25px;
-            width: 58px;
-            height: 58px;
-            border-radius: 999px 0 0 999px;
-            z-index: 3;
-        }
-
-        .menu {
-            left: 384px;
-            top: 25px;
-            width: 58px;
-            height: 58px;
-            border-radius: 0 999px 999px 0;
-            z-index: 3;
-        }
-
-        /* Gatilhos sensíveis à pressão: preenchimento de dentro para fora. */
-        .pressure-trigger,
-        .pressure-trigger.pressed {
-            background: transparent !important;
-            border-color: var(--button-color, var(--accent));
-        }
-
         .trigger-fill {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: var(--pressure, 0%);
-            opacity: 0.72;
-            z-index: 2;
+            position: absolute; top: 0; bottom: 0;
+            width: var(--trigger-pressure); opacity: 0.72;
             transition: width 0.05s linear, opacity 0.05s linear;
         }
-
-        .trigger-fill::after {
-            content: "";
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 0;
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .lt .trigger-fill {
+        .trigger-overlay.lt .trigger-fill {
             right: 0;
-            background: linear-gradient(
-                90deg,
-                color-mix(in srgb, var(--button-color, var(--accent)) 88%, transparent),
-                color-mix(in srgb, var(--button-color, var(--accent)) 14%, transparent)
-            );
+            background: linear-gradient(90deg,
+                color-mix(in srgb, var(--color-lt) 88%, transparent),
+                color-mix(in srgb, var(--color-lt) 14%, transparent));
         }
-
-        .lt .trigger-fill::after {
+        .trigger-overlay.rt .trigger-fill {
             left: 0;
-            border-left: var(--stroke) solid var(--button-color, var(--accent));
-            box-shadow: 0 0 8px color-mix(in srgb, var(--button-color, var(--accent)) 45%, transparent);
+            background: linear-gradient(90deg,
+                color-mix(in srgb, var(--color-rt) 14%, transparent),
+                color-mix(in srgb, var(--color-rt) 88%, transparent));
         }
-
-        .rt .trigger-fill {
-            left: 0;
-            background: linear-gradient(
-                90deg,
-                color-mix(in srgb, var(--button-color, var(--accent)) 14%, transparent),
-                color-mix(in srgb, var(--button-color, var(--accent)) 88%, transparent)
-            );
-        }
-
-        .rt .trigger-fill::after {
-            right: 0;
-            border-right: var(--stroke) solid var(--button-color, var(--accent));
-            box-shadow: 0 0 8px color-mix(in srgb, var(--button-color, var(--accent)) 45%, transparent);
-        }
-
+        .trigger-overlay.pressed .trigger-fill { opacity: 1; }
         .trigger-graph {
-            display: block;
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 3;
-            pointer-events: none;
+            display: block; position: absolute; inset: 0;
+            width: 100%; height: 100%; pointer-events: none;
         }
 
-        .pressure-trigger.pressed .trigger-fill {
-            opacity: 1;
+        /* ═══ STICK TRAIL (Arcade) ═══ */
+        .stick-trail-canvas {
+            position: absolute; pointer-events: none;
+            /* NO z-index — let DOM order decide. Canvas is inserted BEFORE
+               the SVG, so the SVG (and its knob) renders ON TOP of the trail.
+               The SVG has position:absolute which establishes its own
+               stacking context, painting it above the canvas. */
         }
 
-        .d-up {
-            left: 261.02px;
-            top: 136px;
-            width: 54px;
-            height: 80px;
-            overflow: visible;
-            z-index: 3;
-        }
-
-        .d-down {
-            left: 261.02px;
-            top: 216px;
-            width: 54px;
-            height: 80px;
-            overflow: visible;
-            z-index: 3;
-        }
-
-        .d-left {
-            left: 208px;
-            top: 189.02px;
-            width: 80px;
-            height: 54px;
-            overflow: visible;
-            z-index: 3;
-        }
-
-        .d-right {
-            left: 288px;
-            top: 189.02px;
-            width: 80px;
-            height: 54px;
-            overflow: visible;
-            z-index: 3;
-        }
-
-        /* ABXY em cruz no bloco virtual 160×160. */
-        .a {
-            left: 451.25px;
-            top: 238.5px;
-            width: 57.5px;
-            height: 57.5px;
-            border-radius: 50%;
-            z-index: 3;
-        }
-
-        .b {
-            left: 502.5px;
-            top: 187.25px;
-            width: 57.5px;
-            height: 57.5px;
-            border-radius: 50%;
-            z-index: 3;
-        }
-
-        .x {
-            left: 400px;
-            top: 187.25px;
-            width: 57.5px;
-            height: 57.5px;
-            border-radius: 50%;
-            z-index: 3;
-        }
-
-        .y {
-            left: 451.25px;
-            top: 136px;
-            width: 57.5px;
-            height: 57.5px;
-            border-radius: 50%;
-            z-index: 3;
-        }
-
-        .analog-boundary {
-            position: absolute;
-            border: var(--stroke) solid color-mix(in srgb, var(--button-color, var(--accent)) 30%, transparent);
-            border-radius: 50%;
-            background: transparent;
-            z-index: 3;
-        }
-
-        .ls-boundary {
-            left: 10px;
-            top: 120px;
-            width: 172px;
-            height: 172px;
-        }
-
-        .rs-boundary {
-            left: 586px;
-            top: 120px;
-            width: 172px;
-            height: 172px;
-        }
-
-        .controller-overlay.debug .button:not(svg) {
-            border-color: #ff00ff !important;
-            background: rgba(255, 0, 255, 0.1) !important;
-        }
-
-        .controller-overlay.debug svg.button {
-            stroke: #ff00ff !important;
-            fill: rgba(255, 0, 255, 0.1) !important;
-        }
-
-        .controller-overlay.debug .analog-boundary {
-            border-color: #00ffff !important;
-            background: rgba(0, 255, 255, 0.1) !important;
+        /* ═══ DEBUG ═══ */
+        .controller-overlay.debug .controller-svg g[id] > :nth-child(2) {
+            stroke: #ff00ff; stroke-width: 1;
         }
     </style>
 </head>
 <body>
-    <div class="controller-overlay" id="controller-overlay">
-        <div class="controller-stage" id="controller-stage">
-            <div class="controller-bg" id="controller-bg" aria-hidden="true"></div>
-
-            <div class="button pressure-trigger lt" id="lt" aria-label="Gatilho esquerdo LT">
-                <div class="trigger-fill" aria-hidden="true"></div>
-                <canvas class="trigger-graph" width="185" height="62" aria-hidden="true"></canvas>
-            </div>
-            <div class="button pressure-trigger rt" id="rt" aria-label="Gatilho direito RT">
-                <div class="trigger-fill" aria-hidden="true"></div>
-                <canvas class="trigger-graph" width="185" height="62" aria-hidden="true"></canvas>
-            </div>
-
-            <div class="button lb" id="lb"></div>
-            <div class="button rb" id="rb"></div>
-            <div class="button view" id="view"></div>
-            <div class="button menu" id="menu"></div>
-
-            <svg class="button d-up" id="up" viewBox="-1 -1 102 102" preserveAspectRatio="none" overflow="visible" aria-hidden="true">
-                <polygon points="0,0 100,0 100,67.44 50,100 0,67.44" />
-            </svg>
-            <svg class="button d-down" id="down" viewBox="-1 -1 102 102" preserveAspectRatio="none" overflow="visible" aria-hidden="true">
-                <polygon points="50,0 100,32.56 100,100 0,100 0,32.56" />
-            </svg>
-            <svg class="button d-left" id="left" viewBox="-1 -1 102 102" preserveAspectRatio="none" overflow="visible" aria-hidden="true">
-                <polygon points="0,0 67.44,0 100,50 67.44,100 0,100" />
-            </svg>
-            <svg class="button d-right" id="right" viewBox="-1 -1 102 102" preserveAspectRatio="none" overflow="visible" aria-hidden="true">
-                <polygon points="32.56,0 100,0 100,100 32.56,100 0,50" />
-            </svg>
-
-            <div class="button a" id="a"></div>
-            <div class="button b" id="b"></div>
-            <div class="button x" id="x"></div>
-            <div class="button y" id="y"></div>
-
-            <div class="analog-boundary ls-boundary" id="ls-boundary">
-                <div class="button analog-knob ls" id="ls"></div>
-            </div>
-            <div class="analog-boundary rs-boundary" id="rs-boundary">
-                <div class="button analog-knob rs" id="rs"></div>
-            </div>
-        </div>
-    </div>
-
+    <div class="controller-overlay" id="controller-overlay"></div>
+    <template id="svg-xbox"><svg width="100%" height="100%" viewBox="0 0 768 324" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g id="Prancheta1">
+        <rect x="0" y="0" width="768" height="324"/>
+        <g id="a" transform="matrix(1.113326,0,0,1.113326,-43.517215,95.218971)">
+            <circle cx="466.444" cy="139.5" r="22.5"/>
+            <path d="M466.444,117C478.863,117 488.944,127.082 488.944,139.5C488.944,151.918 478.863,162 466.444,162C454.026,162 443.944,151.918 443.944,139.5C443.944,127.082 454.026,117 466.444,117ZM466.444,118.796C455.018,118.796 445.741,128.073 445.741,139.5C445.741,150.927 455.018,160.204 466.444,160.204C477.871,160.204 487.148,150.927 487.148,139.5C487.148,128.073 477.871,118.796 466.444,118.796Z" style="fill:white;"/>
+        </g>
+        <g id="b" transform="matrix(1.113326,0,0,1.113326,6.582459,45.119298)">
+            <circle cx="466.444" cy="139.5" r="22.5"/>
+            <path d="M466.444,117C478.863,117 488.944,127.082 488.944,139.5C488.944,151.918 478.863,162 466.444,162C454.026,162 443.944,151.918 443.944,139.5C443.944,127.082 454.026,117 466.444,117ZM466.444,118.796C455.018,118.796 445.741,128.073 445.741,139.5C445.741,150.927 455.018,160.204 466.444,160.204C477.871,160.204 487.148,150.927 487.148,139.5C487.148,128.073 477.871,118.796 466.444,118.796Z" style="fill:white;"/>
+        </g>
+        <g id="x" transform="matrix(1.113326,0,0,1.113326,-93.616888,45.119298)">
+            <circle cx="466.444" cy="139.5" r="22.5"/>
+            <path d="M466.444,117C478.863,117 488.944,127.082 488.944,139.5C488.944,151.918 478.863,162 466.444,162C454.026,162 443.944,151.918 443.944,139.5C443.944,127.082 454.026,117 466.444,117ZM466.444,118.796C455.018,118.796 445.741,128.073 445.741,139.5C445.741,150.927 455.018,160.204 466.444,160.204C477.871,160.204 487.148,150.927 487.148,139.5C487.148,128.073 477.871,118.796 466.444,118.796Z" style="fill:white;"/>
+        </g>
+        <g id="y" transform="matrix(1.113326,0,0,1.113326,-43.517215,-4.980376)">
+            <circle cx="466.444" cy="139.5" r="22.5"/>
+            <path d="M466.444,117C478.863,117 488.944,127.082 488.944,139.5C488.944,151.918 478.863,162 466.444,162C454.026,162 443.944,151.918 443.944,139.5C443.944,127.082 454.026,117 466.444,117ZM466.444,118.796C455.018,118.796 445.741,128.073 445.741,139.5C445.741,150.927 455.018,160.204 466.444,160.204C477.871,160.204 487.148,150.927 487.148,139.5C487.148,128.073 477.871,118.796 466.444,118.796Z" style="fill:white;"/>
+        </g>
+        <g id="up" transform="matrix(0,-1.113326,1.523361,0,213.375698,370.544431)">
+            <path d="M175.5,68.196L153,51.752L175.5,35.308L212.417,35.308C218.626,35.308 223.667,38.992 223.667,43.53L223.667,59.974C223.667,64.512 218.626,68.196 212.417,68.196L175.5,68.196Z"/>
+            <path d="M175.5,68.196L153,51.752L175.5,35.308L212.417,35.308C218.626,35.308 223.667,38.992 223.667,43.53L223.667,59.974C223.667,64.512 218.626,68.196 212.417,68.196L175.5,68.196ZM176.244,66.883L212.417,66.883C217.634,66.883 221.87,63.787 221.87,59.974L221.87,43.53C221.87,39.717 217.634,36.621 212.417,36.621L176.244,36.621L155.541,51.752L176.244,66.883Z" style="fill:white;"/>
+        </g>
+        <g id="down" transform="matrix(0,-1.113326,1.523361,0,213.375698,370.544431)">
+            <path d="M130.5,35.308L153,51.752L130.5,68.196L93.583,68.196C87.374,68.196 82.333,64.512 82.333,59.974L82.333,43.53C82.333,38.992 87.374,35.308 93.583,35.308L130.5,35.308Z"/>
+            <path d="M130.5,35.308L153,51.752L130.5,68.196L93.583,68.196C87.374,68.196 82.333,64.512 82.333,59.974L82.333,43.53C82.333,38.992 87.374,35.308 93.583,35.308L130.5,35.308ZM129.756,36.621L93.583,36.621C88.366,36.621 84.13,39.717 84.13,43.53L84.13,59.974C84.13,63.787 88.366,66.883 93.583,66.883L129.756,66.883L150.459,51.752L129.756,36.621Z" style="fill:white;"/>
+        </g>
+        <g id="left" transform="matrix(1.113326,0,0,1.523361,121.873494,121.368814)">
+            <path d="M130.5,35.308L153,51.752L130.5,68.196L93.583,68.196C87.374,68.196 82.333,64.512 82.333,59.974L82.333,43.53C82.333,38.992 87.374,35.308 93.583,35.308L130.5,35.308Z"/>
+            <path d="M130.5,35.308L153,51.752L130.5,68.196L93.583,68.196C87.374,68.196 82.333,64.512 82.333,59.974L82.333,43.53C82.333,38.992 87.374,35.308 93.583,35.308L130.5,35.308ZM129.756,36.621L93.583,36.621C88.366,36.621 84.13,39.717 84.13,43.53L84.13,59.974C84.13,63.787 88.366,66.883 93.583,66.883L129.756,66.883L150.459,51.752L129.756,36.621Z" style="fill:white;"/>
+        </g>
+        <g id="right" transform="matrix(1.113326,0,0,1.523361,121.873494,121.368814)">
+            <path d="M175.5,68.196L153,51.752L175.5,35.308L212.417,35.308C218.626,35.308 223.667,38.992 223.667,43.53L223.667,59.974C223.667,64.512 218.626,68.196 212.417,68.196L175.5,68.196Z"/>
+            <path d="M175.5,68.196L153,51.752L175.5,35.308L212.417,35.308C218.626,35.308 223.667,38.992 223.667,43.53L223.667,59.974C223.667,64.512 218.626,68.196 212.417,68.196L175.5,68.196ZM176.244,66.883L212.417,66.883C217.634,66.883 221.87,63.787 221.87,59.974L221.87,43.53C221.87,39.717 217.634,36.621 212.417,36.621L176.244,36.621L155.541,51.752L176.244,66.883Z" style="fill:white;"/>
+        </g>
+        <g id="left_joy_reach" transform="matrix(0.485649,0,0,0.485649,19.2,121.530439)">
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0Z"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,4.118C74.863,4.118 4.118,74.863 4.118,162C4.118,249.137 74.863,319.882 162,319.882C249.137,319.882 319.882,249.137 319.882,162C319.882,74.863 249.137,4.118 162,4.118Z" style="fill:white;"/>
+        </g>
+        <g id="left_joy" transform="matrix(0.323765,0,0,0.323765,45.424994,147.755433)">
+            <circle cx="162" cy="162" r="162"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,6.177C75.999,6.177 6.177,75.999 6.177,162C6.177,248.001 75.999,317.823 162,317.823C248.001,317.823 317.823,248.001 317.823,162C317.823,75.999 248.001,6.177 162,6.177Z" style="fill:white;"/>
+        </g>
+        <g id="right_joy_reach" transform="matrix(0.485649,0,0,0.485649,591.449837,121.530539)">
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0Z"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,4.118C74.863,4.118 4.118,74.863 4.118,162C4.118,249.137 74.863,319.882 162,319.882C249.137,319.882 319.882,249.137 319.882,162C319.882,74.863 249.137,4.118 162,4.118Z" style="fill:white;"/>
+        </g>
+        <g id="right_joy" transform="matrix(0.323765,0,0,0.323765,617.674831,147.755533)">
+            <circle cx="162" cy="162" r="162"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,6.177C75.999,6.177 6.177,75.999 6.177,162C6.177,248.001 75.999,317.823 162,317.823C248.001,317.823 317.823,248.001 317.823,162C317.823,75.999 248.001,6.177 162,6.177Z" style="fill:white;"/>
+        </g>
+        <g id="lb" transform="matrix(0.742217,0,0,1.523361,141.665971,-8.667572)">
+            <path d="M223.667,43.53L223.667,59.974C223.667,64.512 216.105,68.196 206.792,68.196L99.208,68.196C89.895,68.196 82.333,64.512 82.333,59.974L82.333,43.53C82.333,38.992 89.895,35.308 99.208,35.308L206.792,35.308C216.105,35.308 223.667,38.992 223.667,43.53Z"/>
+            <path d="M223.667,43.53L223.667,59.974C223.667,64.512 216.105,68.196 206.792,68.196L99.208,68.196C89.895,68.196 82.333,64.512 82.333,59.974L82.333,43.53C82.333,38.992 89.895,35.308 99.208,35.308L206.792,35.308C216.105,35.308 223.667,38.992 223.667,43.53ZM220.972,43.53C220.972,39.717 214.618,36.621 206.792,36.621L99.208,36.621C91.382,36.621 85.028,39.717 85.028,43.53L85.028,59.974C85.028,63.787 91.382,66.883 99.208,66.883L206.792,66.883C214.618,66.883 220.972,63.787 220.972,59.974L220.972,43.53Z" style="fill:white;"/>
+        </g>
+        <g id="rb" transform="matrix(0.742217,0,0,1.523361,399.215482,-8.667572)">
+            <path d="M223.667,43.53L223.667,59.974C223.667,64.512 216.105,68.196 206.792,68.196L99.208,68.196C89.895,68.196 82.333,64.512 82.333,59.974L82.333,43.53C82.333,38.992 89.895,35.308 99.208,35.308L206.792,35.308C216.105,35.308 223.667,38.992 223.667,43.53Z"/>
+            <path d="M223.667,43.53L223.667,59.974C223.667,64.512 216.105,68.196 206.792,68.196L99.208,68.196C89.895,68.196 82.333,64.512 82.333,59.974L82.333,43.53C82.333,38.992 89.895,35.308 99.208,35.308L206.792,35.308C216.105,35.308 223.667,38.992 223.667,43.53ZM220.972,43.53C220.972,39.717 214.618,36.621 206.792,36.621L99.208,36.621C91.382,36.621 85.028,39.717 85.028,43.53L85.028,59.974C85.028,63.787 91.382,66.883 99.208,66.883L206.792,66.883C214.618,66.883 220.972,63.787 220.972,59.974L220.972,43.53Z" style="fill:white;"/>
+        </g>
+        <g id="lt" transform="matrix(1.113326,0,0,1.523361,-72.463829,-8.667572)">
+            <path d="M223.667,43.53L223.667,59.974C223.667,64.512 218.626,68.196 212.417,68.196L93.583,68.196C87.374,68.196 82.333,64.512 82.333,59.974L82.333,43.53C82.333,38.992 87.374,35.308 93.583,35.308L212.417,35.308C218.626,35.308 223.667,38.992 223.667,43.53Z"/>
+            <path d="M223.667,43.53L223.667,59.974C223.667,64.512 218.626,68.196 212.417,68.196L93.583,68.196C87.374,68.196 82.333,64.512 82.333,59.974L82.333,43.53C82.333,38.992 87.374,35.308 93.583,35.308L212.417,35.308C218.626,35.308 223.667,38.992 223.667,43.53ZM221.87,43.53C221.87,39.717 217.634,36.621 212.417,36.621L93.583,36.621C88.366,36.621 84.13,39.717 84.13,43.53L84.13,59.974C84.13,63.787 88.366,66.883 93.583,66.883L212.417,66.883C217.634,66.883 221.87,63.787 221.87,59.974L221.87,43.53Z" style="fill:white;"/>
+        </g>
+        <g id="rt" transform="matrix(1.113326,0,0,1.523361,499.786008,-8.667572)">
+            <path d="M223.667,43.53L223.667,59.974C223.667,64.512 218.626,68.196 212.417,68.196L93.583,68.196C87.374,68.196 82.333,64.512 82.333,59.974L82.333,43.53C82.333,38.992 87.374,35.308 93.583,35.308L212.417,35.308C218.626,35.308 223.667,38.992 223.667,43.53Z"/>
+            <path d="M223.667,43.53L223.667,59.974C223.667,64.512 218.626,68.196 212.417,68.196L93.583,68.196C87.374,68.196 82.333,64.512 82.333,59.974L82.333,43.53C82.333,38.992 87.374,35.308 93.583,35.308L212.417,35.308C218.626,35.308 223.667,38.992 223.667,43.53ZM221.87,43.53C221.87,39.717 217.634,36.621 212.417,36.621L93.583,36.621C88.366,36.621 84.13,39.717 84.13,43.53L84.13,59.974C84.13,63.787 88.366,66.883 93.583,66.883L212.417,66.883C217.634,66.883 221.87,63.787 221.87,59.974L221.87,43.53Z" style="fill:white;"/>
+        </g>
+        <g id="menu" transform="matrix(0.556663,0,0,1.113326,206.981153,5.039559)">
+            <path d="M363.244,36C375.114,36 386.498,38.358 394.891,42.554C403.285,46.751 408,52.443 408,58.378L408,58.38C408,70.873 387.745,81 362.76,81L318,81L318,36L363.244,36Z"/>
+            <path d="M407.861,60.165C406.041,71.824 386.543,81 362.76,81L318,81L318,36L363.244,36C375.114,36 386.498,38.358 394.891,42.554C403.285,46.751 408,52.443 408,58.378L408,58.38C408,58.958 407.957,59.531 407.872,60.098C407.23,59.706 404.407,58.002 404.407,58.378C404.407,52.919 400.071,47.684 392.351,43.824C384.631,39.965 374.161,37.796 363.244,37.796L321.593,37.796L321.593,79.204L362.76,79.204C385.761,79.204 404.407,69.881 404.407,58.38C404.41,59.818 407.2,60.115 407.861,60.165ZM404.407,58.378L407.87,60.109C407.87,60.11 407.87,60.11 407.87,60.111L404.407,58.38L404.407,58.378Z" style="fill:white;"/>
+        </g>
+        <g id="view" transform="matrix(0.556663,0,0,1.113326,156.88148,5.039559)">
+            <path d="M408,36L408,81L363,81C338.147,81 318,70.926 318,58.5C318,46.074 338.147,36 363,36L408,36Z"/>
+            <path d="M408,36L408,81L363,81C338.147,81 318,70.926 318,58.5C318,46.074 338.147,36 363,36L408,36ZM404.407,37.796L363,37.796C340.131,37.796 321.593,47.066 321.593,58.5C321.593,69.934 340.131,79.204 363,79.204L404.407,79.204L404.407,37.796Z" style="fill:white;"/>
+        </g>
+    </g>
+</svg></template>
+    <template id="svg-arcade"><svg width="100%" height="100%" viewBox="0 0 768 324" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g id="Prancheta1">
+        <rect x="0" y="0" width="768" height="324"/>
+        <g id="joy_reach" transform="matrix(0.666667,0,0,0.666667,44.999964,51.000024)">
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,3C74.246,3 3,74.246 3,162C3,249.754 74.246,321 162,321C249.754,321 321,249.754 321,162C321,74.246 249.754,3 162,3Z"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,3C74.246,3 3,74.246 3,162C3,249.754 74.246,321 162,321C249.754,321 321,249.754 321,162C321,74.246 249.754,3 162,3Z" style="fill:white;"/>
+        </g>
+        <g id="joy" transform="matrix(0.222222,0,0,0.222222,116.999964,123.000024)">
+            <circle cx="162" cy="162" r="162" style="fill:white;"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,9C77.557,9 9,77.557 9,162C9,246.443 77.557,315 162,315C246.443,315 315,246.443 315,162C315,77.557 246.443,9 162,9Z" style="fill:white;"/>
+        </g>
+        <g id="r3" transform="matrix(0.148148,0,0,0.148148,597.000036,243.000024)">
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,13.5C80.041,13.5 13.5,80.041 13.5,162C13.5,243.959 80.041,310.5 162,310.5C243.959,310.5 310.5,243.959 310.5,162C310.5,80.041 243.959,13.5 162,13.5Z"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,13.5C80.041,13.5 13.5,80.041 13.5,162C13.5,243.959 80.041,310.5 162,310.5C243.959,310.5 310.5,243.959 310.5,162C310.5,80.041 243.959,13.5 162,13.5Z" style="fill:white;"/>
+        </g>
+        <g id="l3" transform="matrix(0.148148,0,0,0.148148,441.000084,243.000024)">
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,13.5C80.041,13.5 13.5,80.041 13.5,162C13.5,243.959 80.041,310.5 162,310.5C243.959,310.5 310.5,243.959 310.5,162C310.5,80.041 243.959,13.5 162,13.5Z"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,13.5C80.041,13.5 13.5,80.041 13.5,162C13.5,243.959 80.041,310.5 162,310.5C243.959,310.5 310.5,243.959 310.5,162C310.5,80.041 243.959,13.5 162,13.5Z" style="fill:white;"/>
+        </g>
+        <g id="rt" transform="matrix(0.277778,0,0,0.277778,605.999964,141.000024)">
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z" style="fill:white;"/>
+        </g>
+        <g id="rb" transform="matrix(0.277778,0,0,0.277778,632.999964,33.000024)">
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z" style="fill:white;"/>
+        </g>
+        <g id="b" transform="matrix(0.277778,0,0,0.277778,497.999964,141.000024)">
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z" style="fill:white;"/>
+        </g>
+        <g id="y" transform="matrix(0.277778,0,0,0.277778,524.999964,33.000024)">
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z" style="fill:white;"/>
+        </g>
+        <g id="a" transform="matrix(0.277778,0,0,0.277778,389.999964,141.000024)">
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z" style="fill:white;"/>
+        </g>
+        <g id="x" transform="matrix(0.277778,0,0,0.277778,416.999964,33.000024)">
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z" style="fill:white;"/>
+        </g>
+        <g id="lt" transform="matrix(0.277778,0,0,0.277778,281.999964,195.000024)">
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z" style="fill:white;"/>
+        </g>
+        <g id="lb" transform="matrix(0.277778,0,0,0.277778,308.999964,87.000024)">
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z"/>
+            <path d="M162,0C251.41,0 324,72.59 324,162C324,251.41 251.41,324 162,324C72.59,324 0,251.41 0,162C0,72.59 72.59,0 162,0ZM162,7.2C76.564,7.2 7.2,76.564 7.2,162C7.2,247.436 76.564,316.8 162,316.8C247.436,316.8 316.8,247.436 316.8,162C316.8,76.564 247.436,7.2 162,7.2Z" style="fill:white;"/>
+        </g>
+        <g id="view" transform="matrix(0.5,0,0,1,339.000036,208.500132)">
+            <path d="M408,36L408,81L363,81C338.147,81 318,70.926 318,58.5C318,46.074 338.147,36 363,36L408,36ZM404,38L363,38C340.356,38 322,47.178 322,58.5C322,69.822 340.356,79 363,79L404,79L404,38Z"/>
+            <path d="M408,36L408,81L363,81C338.147,81 318,70.926 318,58.5C318,46.074 338.147,36 363,36L408,36ZM404,38L363,38C340.356,38 322,47.178 322,58.5C322,69.822 340.356,79 363,79L404,79L404,38ZM406,79C406,79.552 405.105,80 404,80L406,80L406,79ZM404,37C405.105,37 406,37.448 406,38L406,37L404,37Z" style="fill:white;"/>
+        </g>
+        <g id="menu" transform="matrix(0.5,0,0,1,384.000036,208.500132)">
+            <path d="M363.244,36C375.114,36 386.498,38.358 394.891,42.554C403.285,46.751 408,52.443 408,58.378L408,58.38C408,70.873 387.745,81 362.76,81L318,81L318,36L363.244,36ZM363.244,38L322,38L322,79L362.76,79C385.536,79 404,69.768 404,58.38L404,58.378C404,52.973 399.706,47.79 392.063,43.969C384.42,40.147 374.053,38 363.244,38Z"/>
+            <path d="M407.957,59.38C406.91,71.409 387.075,81 362.76,81L318,81L318,36L363.244,36C375.114,36 386.498,38.358 394.891,42.554C403.285,46.751 408,52.443 408,58.378L408,58.38C408,58.707 407.986,59.031 407.959,59.355C407.673,59.179 406,58.162 406,58.378L404,59.38L406,58.38L406,58.378L407.959,59.357C407.958,59.363 407.958,59.369 407.957,59.375C407.748,59.361 406.828,59.281 406.328,58.929C406.127,58.776 406.008,58.594 406,58.399C406.008,58.622 406.138,58.795 406.328,58.929C406.678,59.195 407.275,59.373 407.957,59.38ZM403.955,59.357C403.985,59.033 404,58.708 404,58.38L404,58.378C404,52.973 399.706,47.79 392.063,43.969C384.42,40.147 374.053,38 363.244,38L322,38L322,79L362.76,79C384.881,79 402.934,70.291 403.955,59.357ZM322,80C320.895,80 320,79.552 320,79L320,80L322,80ZM320,38C320,37.448 320.895,37 322,37L320,37L320,38Z" style="fill:white;"/>
+        </g>
+    </g>
+</svg></template>
     <script>
         (() => {
             'use strict';
-
-            /*
-                Auto-escala do overlay para preencher a viewport (OBS Browser Source).
-                - Default (?fit=contain): scale = min(viewportW / 768, viewportH / 324),
-                  mantém aspect ~2.37:1, pode ter padding transparente.
-                - ?fit=cover: scale = max(scaleX, scaleY), preenche a viewport,
-                  pode CLIPAR os lados do controller (LT/RT cortados em source 16:9).
-                - Override manual: ?scale=1.5 força 1.5x (ignora fit).
-                - Resize listener garante reajuste dinâmico.
-            */
             const OVERLAY_BASE_WIDTH = 768;
             const OVERLAY_BASE_HEIGHT = 324;
-            const FIT_MODES = Object.freeze(['contain', 'cover']);
+            const CONTROLLERS = Object.freeze({ xbox: 'svg-xbox', arcade: 'svg-arcade' });
 
-            function readManualScale() {
+            function getParam(name, fallback) {
                 try {
                     const params = new URLSearchParams(window.location.search);
-                    const raw = params.get('scale');
+                    return (params.get(name) || fallback).toLowerCase();
+                } catch (e) { return fallback; }
+            }
+            function getScaleOverride() {
+                try {
+                    const raw = new URLSearchParams(window.location.search).get('scale');
                     if (!raw) return null;
-                    const value = Number.parseFloat(raw);
-                    return Number.isFinite(value) && value > 0 ? value : null;
-                } catch (error) {
-                    return null;
-                }
+                    const v = Number.parseFloat(raw);
+                    return Number.isFinite(v) && v > 0 ? v : null;
+                } catch (e) { return null; }
             }
-
-            function readFitMode() {
-                try {
-                    const params = new URLSearchParams(window.location.search);
-                    const raw = (params.get('fit') || 'contain').toLowerCase();
-                    return FIT_MODES.includes(raw) ? raw : 'contain';
-                } catch (error) {
-                    return 'contain';
-                }
-            }
-
             function applyScale() {
-                const manual = readManualScale();
+                const manual = getScaleOverride();
                 let scale;
-                if (manual !== null) {
-                    scale = manual;
-                } else {
-                    const fitMode = readFitMode();
-                    const scaleX = window.innerWidth / OVERLAY_BASE_WIDTH;
-                    const scaleY = window.innerHeight / OVERLAY_BASE_HEIGHT;
-                    scale = fitMode === 'cover'
-                        ? Math.max(scaleX, scaleY)
-                        : Math.min(scaleX, scaleY);
+                if (manual !== null) { scale = manual; }
+                else {
+                    const fit = getParam('fit', 'contain');
+                    const sx = window.innerWidth / OVERLAY_BASE_WIDTH;
+                    const sy = window.innerHeight / OVERLAY_BASE_HEIGHT;
+                    scale = fit === 'cover' ? Math.max(sx, sy) : Math.min(sx, sy);
                 }
                 document.documentElement.style.setProperty('--scale', scale);
             }
-
             window.addEventListener('resize', applyScale);
             window.addEventListener('pageshow', applyScale);
             applyScale();
 
             /*
-                Icon sets (Fase 2) — permite trocar os text labels dos botões via URL.
-                Use ?icons=xbox|playstation|nintendo|none na URL.
-                Default: xbox (se nenhum param informado).
-
-                O JS injeta as variáveis --label-* em :root. Isso tem precedência sobre
-                o CSS default, mas pode ser override editando :root no HTML (embora a
-                URL sempre vença depois do applyIconSet).
-
-                Mapeamento POSIÇÃO -> label (não índice -> label):
-                Xbox:        A=bottom, B=right, X=left, Y=top
-                PlayStation: ✕=bottom, ○=right, □=left, △=top
-                Nintendo:    B=bottom, A=right, Y=left, X=top (layout Nintendo)
+                Official button colors (verified).
+                Xbox: A=green, B=red, X=blue, Y=amber.
+                PlayStation: Cross=blue, Circle=red, Square=pink, Triangle=green.
+                Trail gradient (newest→oldest): ABXY order for Xbox, Cross-Circle-Square-Triangle for PS.
             */
-            const ICON_SETS = Object.freeze({
+            const COLOR_SCHEMES = Object.freeze({
                 xbox: {
-                    '--label-a': '"A"',
-                    '--label-b': '"B"',
-                    '--label-x': '"X"',
-                    '--label-y': '"Y"',
-                    '--label-lb': '"LB"',
-                    '--label-rb': '"RB"',
-                    '--label-lt': '"LT"',
-                    '--label-rt': '"RT"'
+                    '--color-a': '#4CAF50', '--color-b': '#E5342A',
+                    '--color-x': '#0E7DC0', '--color-y': '#F2C200',
+                    '--trail-color-1': '#4CAF50', '--trail-color-2': '#E5342A',
+                    '--trail-color-3': '#0E7DC0', '--trail-color-4': '#F2C200'
                 },
                 playstation: {
-                    '--label-a': '"✕"',     /* Cross no slot bottom (A) */
-                    '--label-b': '"○"',     /* Circle no slot right (B) */
-                    '--label-x': '"□"',     /* Square no slot left (X) */
-                    '--label-y': '"△"',     /* Triangle no slot top (Y) */
-                    '--label-lb': '"L1"',
-                    '--label-rb': '"R1"',
-                    '--label-lt': '"L2"',
-                    '--label-rt': '"R2"'
-                },
-                nintendo: {
-                    '--label-a': '"B"',     /* B no slot bottom (Nintendo B = Xbox A position) */
-                    '--label-b': '"A"',     /* A no slot right */
-                    '--label-x': '"Y"',     /* Y no slot left */
-                    '--label-y': '"X"',     /* X no slot top */
-                    '--label-lb': '"L"',
-                    '--label-rb': '"R"',
-                    '--label-lt': '"ZL"',
-                    '--label-rt': '"ZR"'
-                },
-                none: {
-                    '--label-a': '""',
-                    '--label-b': '""',
-                    '--label-x': '""',
-                    '--label-y': '""',
-                    '--label-lb': '""',
-                    '--label-rb': '""',
-                    '--label-lt': '""',
-                    '--label-rt': '""'
+                    '--color-a': '#2E6DB4', '--color-b': '#E5342A',
+                    '--color-x': '#FF69F8', '--color-y': '#3EE3A1',
+                    '--trail-color-1': '#2E6DB4', '--trail-color-2': '#E5342A',
+                    '--trail-color-3': '#FF69F8', '--trail-color-4': '#3EE3A1'
                 }
             });
-
-            function applyIconSet() {
-                try {
-                    const params = new URLSearchParams(window.location.search);
-                    const requested = (params.get('icons') || 'xbox').toLowerCase();
-                    const set = ICON_SETS[requested];
-                    if (!set) return;
-                    const root = document.documentElement;
-                    for (const [key, value] of Object.entries(set)) {
-                        root.style.setProperty(key, value);
-                    }
-                } catch (error) {
-                    /* silencioso — fallback para defaults do CSS */
-                }
+            function applyColorScheme() {
+                const scheme = getParam('color', '');
+                const set = COLOR_SCHEMES[scheme];
+                if (!set) return;
+                const root = document.documentElement;
+                for (const [k, v] of Object.entries(set)) root.style.setProperty(k, v);
             }
+            applyColorScheme();
 
+            const ICON_SETS = Object.freeze({
+                xbox: { '--label-a':'"A"','--label-b':'"B"','--label-x':'"X"','--label-y':'"Y"','--label-lb':'"LB"','--label-rb':'"RB"','--label-lt':'"LT"','--label-rt':'"RT"' },
+                playstation: { '--label-a':'"\u2715"','--label-b':'"\u25CB"','--label-x':'"\u25A1"','--label-y':'"\u25B3"','--label-lb':'"L1"','--label-rb':'"R1"','--label-lt':'"L2"','--label-rt':'"R2"' },
+                nintendo: { '--label-a':'"B"','--label-b':'"A"','--label-x':'"Y"','--label-y':'"X"','--label-lb':'"L"','--label-rb':'"R"','--label-lt':'"ZL"','--label-rt':'"ZR"' },
+                none: { '--label-a':'""','--label-b':'""','--label-x':'""','--label-y':'""','--label-lb':'""','--label-rb':'""','--label-lt':'""','--label-rt':'""' }
+            });
+            function applyIconSet() {
+                const set = ICON_SETS[getParam('icons', 'xbox')];
+                if (!set) return;
+                const root = document.documentElement;
+                for (const [k, v] of Object.entries(set)) root.style.setProperty(k, v);
+            }
             applyIconSet();
 
             const BUTTON_MAP = Object.freeze({
-                a: 0, b: 1, x: 2, y: 3,
-                lb: 4, rb: 5, lt: 6, rt: 7,
-                ls: 10, rs: 11,
-                menu: 9, view: 8,
-                up: 12, down: 13, left: 14, right: 15
+                a:0,b:1,x:2,y:3,lb:4,rb:5,lt:6,rt:7,
+                view:8,menu:9,l3:10,r3:11,
+                up:12,down:13,left:14,right:15
             });
-
-            const TRIGGER_BUTTONS = Object.freeze({
-                lt: 6,
-                rt: 7
-            });
-
+            const TRIGGER_BUTTONS = Object.freeze({ lt:6, rt:7 });
+            const DPAD_BUTTONS = Object.freeze({ up:12, down:13, left:14, right:15 });
             const ANALOG_DEAD_ZONE = 0.05;
-            const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
-            const clampAxis = (value) => Math.min(1, Math.max(-1, value));
+            const clamp = (v, mn=0, mx=1) => Math.min(mx, Math.max(mn, v));
+            const clampAxis = (v) => Math.min(1, Math.max(-1, v));
 
-            class XboxControllerOverlay {
+            class BuboController {
                 constructor() {
                     this.overlay = document.getElementById('controller-overlay');
-                    this.lsKnob = document.getElementById('ls');
-                    this.rsKnob = document.getElementById('rs');
-                    this.elements = Object.fromEntries(
-                        Object.keys(BUTTON_MAP).map((id) => [id, document.getElementById(id)])
-                    );
+                    this.controllerType = getParam('controller', 'xbox');
+                    this.svg = null;
+                    this.elements = {};
                     this.triggerCanvases = {};
                     this.triggerContexts = {};
                     this.triggerColors = {};
-                    this.lastPressure = { lt: 0, rt: 0 };
-                    this.analogNeutral = {
-                        ls: { x: 0, y: 0 },
-                        rs: { x: 0, y: 0 }
-                    };
+                    this.lastPressure = { lt:0, rt:0 };
+                    this.stickCanvas = null;
+                    this.stickCtx = null;
+                    this.stickTrail = [];
+                    this.stickTrailLength = this.readVar('--stick-trail-length', 30);
+                    this.stickTrailFade = this.readVar('--stick-trail-fade', 0.04);
+                    this.stickTrailBlur = this.readVar('--stick-trail-blur', 12);
+                    this.stickTrailRadius = this.readVar('--stick-trail-radius', 12);
+                    this.analogNeutral = {};
                     this.analogNeutralCalibrated = false;
-
-                    this.prepareTriggerCanvases();
-                    this.resolveTriggerColors();
-                    this.resetAnalogSticks();
-                    this.bindDebugShortcut();
+                    this.dpadState = { up:false, down:false, left:false, right:false };
+                    this.isArcade = false;
+                    this.knobElements = [];
+                    /* Add controller type class for CSS scoping (LT/RT no-fill = Xbox only). */
+                    this.overlay.classList.add('controller-' + this.controllerType);
+                    this.loadController();
+                    this.bindDebug();
                     this.animate = this.animate.bind(this);
                     this.animate();
                 }
-
-                prepareTriggerCanvases() {
-                    for (const id of Object.keys(TRIGGER_BUTTONS)) {
-                        const canvas = this.elements[id]?.querySelector('canvas');
-                        if (!canvas) continue;
-
-                        this.triggerCanvases[id] = canvas;
-                        this.triggerContexts[id] = canvas.getContext('2d');
-                    }
+                readVar(name, fallback) {
+                    const v = getComputedStyle(this.overlay).getPropertyValue(name).trim();
+                    const n = Number.parseFloat(v);
+                    return Number.isFinite(n) ? n : fallback;
                 }
-
-                /*
-                    Resolve a cor de cada gatilho uma vez (na construção).
-                    Usa um elemento temporário para que o browser interprete
-                    qualquer formato CSS (hex, named, rgb, var()) em rgb numérico,
-                    que o canvas consegue usar com alpha variável por frame.
-                */
-                resolveTriggerColors() {
-                    for (const id of Object.keys(TRIGGER_BUTTONS)) {
-                        const el = this.elements[id];
-                        if (!el) continue;
-                        const raw = getComputedStyle(el).getPropertyValue('--button-color').trim();
-                        this.triggerColors[id] = this.parseColorToRgb(raw);
-                    }
+                /* Resolve CSS variable to RGB via probe element.
+                   Uses var(varName) so browser resolves the full chain. */
+                parseCssVarToRgb(varName) {
+                    const probe = document.createElement('div');
+                    probe.style.color = `var(${varName})`;
+                    document.body.appendChild(probe);
+                    const computed = getComputedStyle(probe).color;
+                    document.body.removeChild(probe);
+                    const m = computed.match(/\d+/g);
+                    if (!m || m.length < 3) return { r:255, g:255, b:255 };
+                    return { r:parseInt(m[0],10), g:parseInt(m[1],10), b:parseInt(m[2],10) };
                 }
-
                 parseColorToRgb(color) {
-                    const fallback = { r: 255, g: 255, b: 255 };
-                    if (!color) return fallback;
+                    const fb = { r:255, g:255, b:255 };
+                    if (!color) return fb;
                     const probe = document.createElement('div');
                     probe.style.color = color;
                     document.body.appendChild(probe);
                     const computed = getComputedStyle(probe).color;
                     document.body.removeChild(probe);
-                    const match = computed.match(/\d+/g);
-                    if (!match || match.length < 3) return fallback;
-                    return {
-                        r: parseInt(match[0], 10),
-                        g: parseInt(match[1], 10),
-                        b: parseInt(match[2], 10)
-                    };
+                    const m = computed.match(/\d+/g);
+                    if (!m || m.length < 3) return fb;
+                    return { r:parseInt(m[0],10), g:parseInt(m[1],10), b:parseInt(m[2],10) };
                 }
-
-                bindDebugShortcut() {
-                    this.overlay?.addEventListener('dblclick', () => {
-                        this.toggleDebug();
+                loadController() {
+                    const templateId = CONTROLLERS[this.controllerType];
+                    if (!templateId) return;
+                    const template = document.getElementById(templateId);
+                    if (!template) return;
+                    const clone = template.content.cloneNode(true);
+                    this.svg = clone.querySelector('svg');
+                    if (!this.svg) return;
+                    this.svg.classList.add('controller-svg');
+                    this.overlay.appendChild(clone);
+                    this.isArcade = this.controllerType === 'arcade';
+                    this.processSvg();
+                    this.collectElements();
+                    this.cacheKnobData();
+                    this.addLabels();
+                    if (!this.isArcade) this.setupTriggerOverlays();
+                    else this.setupStickTrail();
+                }
+                processSvg() {
+                    /* Remove style from SVG ROOT (contains fill-rule:evenodd
+                       which is inherited by all paths). querySelectorAll
+                       excludes the element itself, so we do it manually. */
+                    this.svg.removeAttribute('style');
+                    /* Remove all inline styles and fill attributes from descendants. */
+                    this.svg.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
+                    this.svg.querySelectorAll('path, circle, rect').forEach(el => {
+                        el.removeAttribute('fill');
+                    });
+                    /* For CIRCULAR button groups (where the button shape is a
+                       perfect circle), replace the ring-shaped <path> (2 subpaths:
+                       outer + inner concentric circles) with a solid <circle>.
+                       This is the most reliable way to ensure the button fill is
+                       visible — CEF (OBS) sometimes doesn't render fill-rule:nonzero
+                       correctly via CSS or attribute.
+                       IMPORTANT: the circular list is DIFFERENT per controller type:
+                         - Xbox: only a/b/x/y and the joy knobs are circular.
+                           LB/RB/LT/RT are curved rectangles — NOT circular.
+                           View/Menu are pill-shaped — NOT circular.
+                         - Arcade: ALL main buttons (lb/rb/lt/rt/a/b/x/y/l3/r3) are
+                           circular. View/Menu are pill-shaped — NOT circular.
+                       Non-circular buttons keep their <path> with fill-rule:nonzero
+                       fallback so they don't get deformed into circles. */
+                    const CIRCULAR_IDS_XBOX = Object.freeze(new Set([
+                        'a', 'b', 'x', 'y',
+                        /* Xbox lb/rb/lt/rt are curved rectangles — NOT in this list. */
+                        /* Xbox view/menu are pill shapes — NOT in this list. */
+                        /* Xbox up/down/left/right are arrows — NOT in this list. */
+                    ]));
+                    const CIRCULAR_IDS_ARCADE = Object.freeze(new Set([
+                        'a', 'b', 'x', 'y',
+                        'lb', 'rb', 'lt', 'rt',  /* Arcade lb/rb/lt/rt ARE circles */
+                        'l3', 'r3',
+                    ]));
+                    const circularIds = this.isArcade ? CIRCULAR_IDS_ARCADE : CIRCULAR_IDS_XBOX;
+                    this.svg.querySelectorAll('g[id]').forEach(g => {
+                        const gid = g.id;
+                        const children = Array.from(g.children)
+                            .filter(el => el.tagName.toLowerCase() !== 'text');
+                        if (children[0] && children[0].tagName.toLowerCase() === 'path'
+                            && circularIds.has(gid)) {
+                            /* Circular button with ring path → convert to solid circle. */
+                            this.replaceRingWithCircle(children[0], g);
+                        } else if (children[0] && children[0].tagName.toLowerCase() === 'path') {
+                            /* Non-circular button (rect/pill/arrow/reach):
+                               extract ONLY the outer subpath to make it solid.
+                               This is more reliable than fill-rule:nonzero in CEF. */
+                            this.extractOuterSubpath(children[0]);
+                        }
                     });
                 }
-
-                toggleDebug() {
-                    this.overlay?.classList.toggle('debug');
+                /* Replace a ring-shaped <path> (2 subpaths forming a donut)
+                   with an equivalent <circle> (solid disc). Uses the path's
+                   bounding box to derive center and radius. */
+                replaceRingWithCircle(pathEl, parentGroup) {
+                    try {
+                        const bbox = pathEl.getBBox();
+                        const cx = bbox.x + bbox.width / 2;
+                        const cy = bbox.y + bbox.height / 2;
+                        const r = Math.min(bbox.width, bbox.height) / 2;
+                        const circle = document.createElementNS(
+                            'http://www.w3.org/2000/svg', 'circle');
+                        circle.setAttribute('cx', cx);
+                        circle.setAttribute('cy', cy);
+                        circle.setAttribute('r', r);
+                        /* Copy any transform from the path (shouldn't have one,
+                           the transform is on the parent <g>, but just in case). */
+                        const pathTransform = pathEl.getAttribute('transform');
+                        if (pathTransform) circle.setAttribute('transform', pathTransform);
+                        /* Replace path with circle in the parent group. */
+                        parentGroup.replaceChild(circle, pathEl);
+                    } catch (e) {
+                        /* If getBBox fails (e.g., not yet rendered), skip.
+                           The CSS fill-rule fallback will handle it. */
+                    }
                 }
-
-                enableDebug() {
-                    this.overlay?.classList.add('debug');
+                /* For pill-shaped buttons (view/menu), the path is a ring
+                   (outer subpath + inner subpath). fill-rule:nonzero doesn't
+                   reliably render solid in CEF. Solution: extract ONLY the
+                   outer subpath (first M...Z segment) and use it as a solid
+                   fill. This works for any ring path, regardless of shape. */
+                extractOuterSubpath(pathEl) {
+                    try {
+                        const d = pathEl.getAttribute('d') || '';
+                        /* Split by 'M' (subpath start), keeping the M. */
+                        const parts = d.split(/(?=M)/).filter(s => s.trim());
+                        if (parts.length >= 2) {
+                            /* Use only the first subpath (outer boundary). */
+                            pathEl.setAttribute('d', parts[0].trim());
+                        }
+                    } catch (e) {
+                        /* If anything fails, leave the path as-is. */
+                    }
                 }
-
-                disableDebug() {
-                    this.overlay?.classList.remove('debug');
+                collectElements() {
+                    Object.keys(BUTTON_MAP).forEach(id => {
+                        const el = this.svg.querySelector('#' + id);
+                        if (el) this.elements[id] = el;
+                    });
+                    /* Also collect non-button elements (joy knob for arcade). */
+                    const joy = this.svg.querySelector('#joy');
+                    if (joy) this.elements.joy = joy;
+                    if (this.isArcade) {
+                        this.knobElements = [{ id:'joy', el: this.svg.querySelector('#joy'), reachId: 'joy_reach' }];
+                    } else {
+                        this.knobElements = [
+                            { id:'ls', el: this.svg.querySelector('#left_joy'), stickId:'ls', reachId: 'left_joy_reach' },
+                            { id:'rs', el: this.svg.querySelector('#right_joy'), stickId:'rs', reachId: 'right_joy_reach' }
+                        ];
+                    }
                 }
-
+                /* Cache original transform AND calculate max offset per knob
+                   based on actual knob/reach BBox sizes. This ensures the knob
+                   EDGES touch the reach boundary (not the center exceeding it). */
+                cacheKnobData() {
+                    this.knobElements.forEach(k => {
+                        if (!k.el) return;
+                        k.originalTransform = k.el.getAttribute('transform') || '';
+                        /* Calculate max offset from knob and reach sizes. */
+                        const knobBBox = this.getGroupBBox(k.el);
+                        const reach = k.reachId ? this.svg.querySelector('#' + k.reachId) : null;
+                        if (reach && knobBBox) {
+                            const reachBBox = this.getGroupBBox(reach);
+                            /* Max offset = (reach_radius - knob_radius) so edges touch boundary. */
+                            k.maxOffset = (reachBBox.width - knobBBox.width) / 2;
+                        } else {
+                            k.maxOffset = 26; /* fallback */
+                        }
+                    });
+                }
+                getGroupCenter(g) {
+                    try {
+                        const bbox = g.getBBox();
+                        const ctm = g.getCTM();
+                        const pt = this.svg.createSVGPoint();
+                        pt.x = bbox.x + bbox.width / 2;
+                        pt.y = bbox.y + bbox.height / 2;
+                        const t = pt.matrixTransform(ctm);
+                        return { x: t.x, y: t.y };
+                    } catch(e) { return null; }
+                }
+                getGroupBBox(g) {
+                    try {
+                        const bbox = g.getBBox();
+                        const ctm = g.getCTM();
+                        const p1 = this.svg.createSVGPoint();
+                        p1.x = bbox.x; p1.y = bbox.y;
+                        const p2 = this.svg.createSVGPoint();
+                        p2.x = bbox.x + bbox.width; p2.y = bbox.y + bbox.height;
+                        const t1 = p1.matrixTransform(ctm);
+                        const t2 = p2.matrixTransform(ctm);
+                        return {
+                            x: Math.min(t1.x, t2.x), y: Math.min(t1.y, t2.y),
+                            width: Math.abs(t2.x - t1.x), height: Math.abs(t2.y - t1.y)
+                        };
+                    } catch(e) { return null; }
+                }
+                addLabels() {
+                    const labelMap = {
+                        a:'label-a', b:'label-b', x:'label-x', y:'label-y',
+                        lb:'label-lb', rb:'label-rb', lt:'label-lt', rt:'label-rt',
+                        l3:'label-l3', r3:'label-r3', view:'label-view', menu:'label-menu'
+                    };
+                    Object.entries(labelMap).forEach(([id, varName]) => {
+                        const g = this.elements[id];
+                        if (!g) return;
+                        const center = this.getGroupCenter(g);
+                        if (!center) return;
+                        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        text.setAttribute('x', center.x);
+                        text.setAttribute('y', center.y);
+                        text.setAttribute('font-size',
+                            ['lb','rb','lt','rt','l3','r3','view','menu'].includes(id)
+                                ? 'var(--label-size-small)' : 'var(--label-size)');
+                        const varVal = getComputedStyle(document.documentElement)
+                            .getPropertyValue(varName).trim();
+                        text.textContent = varVal.replace(/^["']|["']$/g, '');
+                        g.appendChild(text);
+                    });
+                }
+                setupTriggerOverlays() {
+                    ['lt','rt'].forEach(id => {
+                        const g = this.elements[id];
+                        if (!g) return;
+                        const bbox = this.getGroupBBox(g);
+                        if (!bbox) return;
+                        const overlay = document.createElement('div');
+                        overlay.className = 'trigger-overlay ' + id;
+                        overlay.id = 'trigger-' + id;
+                        overlay.style.left = bbox.x + 'px';
+                        overlay.style.top = bbox.y + 'px';
+                        overlay.style.width = bbox.width + 'px';
+                        overlay.style.height = bbox.height + 'px';
+                        const fill = document.createElement('div');
+                        fill.className = 'trigger-fill';
+                        overlay.appendChild(fill);
+                        const canvas = document.createElement('canvas');
+                        canvas.className = 'trigger-graph';
+                        canvas.width = Math.round(bbox.width);
+                        canvas.height = Math.round(bbox.height);
+                        overlay.appendChild(canvas);
+                        this.overlay.appendChild(overlay);
+                        this.triggerCanvases[id] = canvas;
+                        this.triggerContexts[id] = canvas.getContext('2d');
+                        const rawColor = getComputedStyle(g).getPropertyValue('--button-color').trim();
+                        this.triggerColors[id] = this.parseColorToRgb(rawColor);
+                    });
+                }
+                setupStickTrail() {
+                    const joy = this.elements.joy;
+                    if (!joy) return;
+                    const reach = this.svg.querySelector('#joy_reach');
+                    if (!reach) return;
+                    const bbox = this.getGroupBBox(reach);
+                    if (!bbox) return;
+                    const padding = 20;
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'stick-trail-canvas';
+                    canvas.width = Math.round(bbox.width + padding * 2);
+                    canvas.height = Math.round(bbox.height + padding * 2);
+                    canvas.style.left = (bbox.x - padding) + 'px';
+                    canvas.style.top = (bbox.y - padding) + 'px';
+                    canvas.style.width = (bbox.width + padding * 2) + 'px';
+                    canvas.style.height = (bbox.height + padding * 2) + 'px';
+                    /* Insert canvas BEFORE the SVG so the knob renders ON TOP
+                       of the trail. The trail is visible through the 40%
+                       transparent background rect. */
+                    this.overlay.insertBefore(canvas, this.svg);
+                    this.stickCanvas = canvas;
+                    this.stickCtx = canvas.getContext('2d');
+                    /* Resolve trail colors via CSS var() probe. */
+                    this.trailColors = [
+                        this.parseCssVarToRgb('--trail-color-1'),
+                        this.parseCssVarToRgb('--trail-color-2'),
+                        this.parseCssVarToRgb('--trail-color-3'),
+                        this.parseCssVarToRgb('--trail-color-4')
+                    ];
+                    this.stickCanvasCenter = { x: canvas.width / 2, y: canvas.height / 2 };
+                }
+                bindDebug() {
+                    this.overlay?.addEventListener('dblclick', () => {
+                        this.overlay?.classList.toggle('debug');
+                    });
+                }
                 getGamepad() {
-                    const getGamepads = navigator.getGamepads?.bind(navigator);
-                    if (typeof getGamepads !== 'function') return null;
-
-                    return Array.from(getGamepads() || [])
-                        .find((gamepad) => gamepad && gamepad.buttons.length > 0) || null;
+                    const gp = navigator.getGamepads?.bind(navigator);
+                    if (typeof gp !== 'function') return null;
+                    return Array.from(gp() || []).find(g => g && g.buttons.length > 0) || null;
                 }
-
-                getGamepadTriggerPressure(id, button) {
-                    if (!button || typeof button.value !== 'number' || !Number.isFinite(button.value)) {
+                getTriggerPressure(button) {
+                    if (!button || typeof button.value !== 'number' || !Number.isFinite(button.value))
                         return button?.pressed ? 1 : 0;
-                    }
-
-                    const value = clamp(button.value);
-                    if (value > 0) {
-                        return value;
-                    }
-
-                    return button.pressed ? 1 : 0;
+                    const v = clamp(button.value);
+                    return v > 0 ? v : (button.pressed ? 1 : 0);
                 }
-
                 setButtonState(id, pressed) {
                     this.elements[id]?.classList.toggle('pressed', Boolean(pressed));
                 }
-
                 setTriggerPressure(id, pressure) {
                     const el = this.elements[id];
                     if (!el) return;
-
-                    const normalizedPressure = clamp(Number(pressure) || 0);
-                    this.lastPressure[id] = normalizedPressure;
-                    el.style.setProperty('--pressure', `${normalizedPressure * 100}%`);
-                    el.classList.toggle('pressed', normalizedPressure > 0.05);
+                    const p = clamp(Number(pressure) || 0);
+                    this.lastPressure[id] = p;
+                    const overlay = document.getElementById('trigger-' + id);
+                    if (overlay) {
+                        overlay.style.setProperty('--trigger-pressure', (p * 100) + '%');
+                        overlay.classList.toggle('pressed', p > 0.05);
+                    }
+                    el.classList.toggle('pressed', p > 0.05);
                 }
-
                 normalizeAxis(value, neutral = 0) {
                     const raw = Number(value);
                     if (!Number.isFinite(raw)) return 0;
-
-                    const adjusted = clampAxis(raw - neutral);
-                    return Math.abs(adjusted) < ANALOG_DEAD_ZONE ? 0 : adjusted;
+                    const adj = clampAxis(raw - neutral);
+                    return Math.abs(adj) < ANALOG_DEAD_ZONE ? 0 : adj;
                 }
-
-                resetAnalogStick(id) {
-                    const knob = id === 'ls' ? this.lsKnob : this.rsKnob;
-                    knob?.style.setProperty('--stick-x', '0px');
-                    knob?.style.setProperty('--stick-y', '0px');
-                }
-
-                resetAnalogSticks() {
-                    this.resetAnalogStick('ls');
-                    this.resetAnalogStick('rs');
-                }
-
-                updateAnalogStick(id, x, y) {
-                    const knob = id === 'ls' ? this.lsKnob : this.rsKnob;
-                    if (!knob) return;
-
-                    const normalizedX = this.normalizeAxis(x);
-                    const normalizedY = this.normalizeAxis(y);
-                    const maxOffset = this.getMaxAnalogOffset();
-
-                    knob.style.setProperty('--stick-x', `${normalizedX * maxOffset}px`);
-                    knob.style.setProperty('--stick-y', `${normalizedY * maxOffset}px`);
-                }
-
-                getMaxAnalogOffset() {
-                    const value = getComputedStyle(this.overlay).getPropertyValue('--analog-max-offset');
-                    return Number.parseFloat(value) || 28.6667;
-                }
-
-                calibrateAnalogNeutral(gamepad) {
-                    if (this.analogNeutralCalibrated || !gamepad || gamepad.axes.length < 4) {
-                        return;
-                    }
-
-                    const axes = gamepad.axes;
-                    const nearNeutral = [0, 1, 2, 3].every((index) => Math.abs(axes[index]) < 0.20);
-                    if (!nearNeutral) return;
-
-                    this.analogNeutral = {
-                        ls: { x: axes[0], y: axes[1] },
-                        rs: { x: axes[2], y: axes[3] }
-                    };
-                    this.analogNeutralCalibrated = true;
-                }
-
-                updateGamepadState(gamepad) {
-                    if (!gamepad) {
-                        this.analogNeutralCalibrated = false;
-                        this.resetAnalogSticks();
-                        this.setTriggerPressure('lt', 0);
-                        this.setTriggerPressure('rt', 0);
-
-                        for (const id of Object.keys(BUTTON_MAP)) {
-                            this.setButtonState(id, false);
+                resetSticks() {
+                    this.knobElements.forEach((k) => {
+                        if (k.el && k.originalTransform !== undefined) {
+                            k.el.setAttribute('transform', k.originalTransform);
                         }
-                        return;
-                    }
-
-                    for (const [id, index] of Object.entries(BUTTON_MAP)) {
-                        const button = gamepad.buttons[index];
-                        if (!button) continue;
-
-                        if (Object.prototype.hasOwnProperty.call(TRIGGER_BUTTONS, id)) {
-                            this.setTriggerPressure(id, this.getGamepadTriggerPressure(id, button));
-                        } else {
-                            this.setButtonState(id, button.pressed || button.value > 0.1);
+                    });
+                    this.stickTrail = [];
+                }
+                calibrateNeutral(gamepad) {
+                    if (this.analogNeutralCalibrated || !gamepad || gamepad.axes.length < 2) return;
+                    if (this.isArcade) {
+                        if (Math.abs(gamepad.axes[0]) < 0.20 && Math.abs(gamepad.axes[1]) < 0.20) {
+                            this.analogNeutral = { x: gamepad.axes[0], y: gamepad.axes[1] };
+                            this.analogNeutralCalibrated = true;
+                        }
+                    } else {
+                        if (gamepad.axes.length >= 4 &&
+                            Math.abs(gamepad.axes[0]) < 0.20 && Math.abs(gamepad.axes[1]) < 0.20 &&
+                            Math.abs(gamepad.axes[2]) < 0.20 && Math.abs(gamepad.axes[3]) < 0.20) {
+                            this.analogNeutral = {
+                                ls: { x: gamepad.axes[0], y: gamepad.axes[1] },
+                                rs: { x: gamepad.axes[2], y: gamepad.axes[3] }
+                            };
+                            this.analogNeutralCalibrated = true;
                         }
                     }
                 }
-
-                updateAnalogState(gamepad) {
-                    this.calibrateAnalogNeutral(gamepad);
-
-                    if (!gamepad) {
-                        return;
-                    }
-
-                    if (gamepad.axes.length >= 2) {
-                        this.updateAnalogStick(
-                            'ls',
-                            this.normalizeAxis(gamepad.axes[0], this.analogNeutral.ls.x),
-                            this.normalizeAxis(gamepad.axes[1], this.analogNeutral.ls.y)
-                        );
-                    }
-
-                    if (gamepad.axes.length >= 4) {
-                        this.updateAnalogStick(
-                            'rs',
-                            this.normalizeAxis(gamepad.axes[2], this.analogNeutral.rs.x),
-                            this.normalizeAxis(gamepad.axes[3], this.analogNeutral.rs.y)
-                        );
+                computeArcadeStick(gamepad) {
+                    if (!gamepad) return { x:0, y:0 };
+                    const ax = this.normalizeAxis(gamepad.axes[0], this.analogNeutral.x || 0);
+                    const ay = this.normalizeAxis(gamepad.axes[1], this.analogNeutral.y || 0);
+                    const dx = (this.dpadState.right?1:0) - (this.dpadState.left?1:0);
+                    const dy = (this.dpadState.down?1:0) - (this.dpadState.up?1:0);
+                    return { x: dx !== 0 ? dx : ax, y: dy !== 0 ? dy : ay };
+                }
+                /* Move knob with CIRCULAR CLAMP.
+                   Magnitude is clamped to 1.0 so diagonal inputs (e.g., D-pad up+right
+                   = vector (1,-1) with magnitude sqrt(2) ≈ 1.414) don't exceed the
+                   circular reach boundary. The knob EDGES touch the boundary, not
+                   the center. */
+                updateKnob(id, x, y) {
+                    const knob = this.knobElements.find(k => k.id === id || k.stickId === id);
+                    if (!knob?.el || knob.originalTransform === undefined) return;
+                    /* Circular clamp: magnitude ≤ 1 */
+                    const mag = Math.sqrt(x*x + y*y);
+                    let cx = x, cy = y;
+                    if (mag > 1) { cx = x / mag; cy = y / mag; }
+                    const maxOffset = knob.maxOffset || 26;
+                    const ox = cx * maxOffset;
+                    const oy = cy * maxOffset;
+                    knob.el.setAttribute('transform',
+                        `translate(${ox} ${oy}) ${knob.originalTransform}`);
+                }
+                updateArcadeStick(x, y) {
+                    this.updateKnob('joy', x, y);
+                    if (this.stickCanvas) {
+                        /* Record trail position using the arcade knob's max offset. */
+                        const arcadeKnob = this.knobElements.find(k => k.id === 'joy');
+                        const maxOff = arcadeKnob?.maxOffset || 72;
+                        /* Apply same circular clamp for trail position. */
+                        const mag = Math.sqrt(x*x + y*y);
+                        let cx = x, cy = y;
+                        if (mag > 1) { cx = x / mag; cy = y / mag; }
+                        const tcx = this.stickCanvasCenter.x + (cx * maxOff);
+                        const tcy = this.stickCanvasCenter.y + (cy * maxOff);
+                        this.stickTrail.push({ x: tcx, y: tcy });
+                        while (this.stickTrail.length > this.stickTrailLength)
+                            this.stickTrail.shift();
                     }
                 }
-
+                /* Stick trail with ABXY color gradient. */
+                drawStickTrail() {
+                    if (!this.stickCtx || this.stickTrail.length === 0) return;
+                    const ctx = this.stickCtx;
+                    const w = this.stickCanvas.width, h = this.stickCanvas.height;
+                    ctx.clearRect(0, 0, w, h);
+                    const len = this.stickTrail.length;
+                    const radius = this.stickTrailRadius;
+                    const colors = this.trailColors || [
+                        {r:255,g:255,b:255}, {r:255,g:255,b:255},
+                        {r:255,g:255,b:255}, {r:255,g:255,b:255}
+                    ];
+                    /* Motion blur: draw thick line segments between consecutive
+                       trail positions, with per-segment color from the gradient.
+                       This eliminates gaps when the stick moves fast. */
+                    if (len > 1) {
+                        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                        ctx.lineWidth = radius * 2;
+                        for (let i = 0; i < len - 1; i++) {
+                            const p1 = this.stickTrail[i];
+                            const p2 = this.stickTrail[i + 1];
+                            const progress = (i + 1) / len;
+                            const segment = Math.floor((1 - progress) * 4);
+                            const colorIdx = Math.min(3, Math.max(0, segment));
+                            const c = colors[colorIdx];
+                            ctx.beginPath();
+                            ctx.moveTo(p1.x, p1.y);
+                            ctx.lineTo(p2.x, p2.y);
+                            ctx.strokeStyle = `rgba(${c.r},${c.g},${c.b},1)`;
+                            if (i < len - 3) {
+                                ctx.shadowBlur = this.stickTrailBlur * (1 - progress);
+                                ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},0.8)`;
+                            } else ctx.shadowBlur = 0;
+                            ctx.stroke();
+                        }
+                        ctx.shadowBlur = 0;
+                    }
+                    /* Trail circles on top — solid color discs for definition.
+                       100% opaque. Ghost glow on older positions via shadowBlur. */
+                    for (let i = 0; i < len; i++) {
+                        const pos = this.stickTrail[i];
+                        const progress = (i + 1) / len;
+                        const alpha = 1;
+                        const segment = Math.floor((1 - progress) * 4);
+                        const colorIdx = Math.min(3, Math.max(0, segment));
+                        const c = colors[colorIdx];
+                        ctx.beginPath();
+                        ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},${alpha})`;
+                        if (i < len - 3) {
+                            ctx.shadowBlur = this.stickTrailBlur * (1 - progress);
+                            ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},${alpha})`;
+                        } else ctx.shadowBlur = 0;
+                        ctx.fill(); ctx.shadowBlur = 0;
+                    }
+                }
                 drawTriggerGraph(id) {
                     const canvas = this.triggerCanvases[id];
-                    const context = this.triggerContexts[id];
-                    if (!canvas || !context) return;
-
-                    const width = canvas.width;
-                    const height = canvas.height;
+                    const ctx = this.triggerContexts[id];
+                    if (!canvas || !ctx) return;
+                    const w = canvas.width, h = canvas.height;
                     const pressure = this.lastPressure[id] || 0;
                     const now = performance.now();
                     const samples = 32;
-                    const baseAmplitude = height * 0.08;
-                    const pressureAmplitude = height * (0.06 + pressure * 0.34);
+                    const baseAmp = h * 0.08;
+                    const prAmp = h * (0.06 + pressure * 0.34);
                     const pulse = 0.70 + pressure * 0.65;
                     const jitter = 0.18 + pressure * 0.82;
-
-                    context.clearRect(0, 0, width, height);
-                    context.save();
-                    context.beginPath();
-
-                    for (let sample = 0; sample <= samples; sample += 1) {
-                        const progress = sample / samples;
-                        const x = id === 'lt' ? width * (1 - progress) : width * progress;
+                    ctx.clearRect(0, 0, w, h);
+                    ctx.save(); ctx.beginPath();
+                    for (let s = 0; s <= samples; s++) {
+                        const p = s / samples;
+                        const x = id === 'lt' ? w * (1 - p) : w * p;
                         const wave = (
-                            Math.sin(progress * Math.PI * 4 + now * 0.006) * 0.45 +
-                            Math.sin(progress * Math.PI * 10 - now * 0.004) * 0.22 +
-                            Math.sin(progress * Math.PI * 18 + now * 0.003) * jitter
+                            Math.sin(p * Math.PI * 4 + now * 0.006) * 0.45 +
+                            Math.sin(p * Math.PI * 10 - now * 0.004) * 0.22 +
+                            Math.sin(p * Math.PI * 18 + now * 0.003) * jitter
                         );
-                        const y = (height / 2) + ((baseAmplitude + pressureAmplitude) * wave * pulse);
-
-                        if (sample === 0) {
-                            context.moveTo(x, y);
+                        const y = (h / 2) + ((baseAmp + prAmp) * wave * pulse);
+                        if (s === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    }
+                    const c = this.triggerColors[id] || { r:255, g:255, b:255 };
+                    ctx.strokeStyle = `rgba(${c.r},${c.g},${c.b},${0.22 + pressure * 0.68})`;
+                    ctx.lineWidth = Math.max(1, h * (0.018 + pressure * 0.032));
+                    ctx.stroke(); ctx.restore();
+                }
+                updateGamepadState(gamepad) {
+                    if (!gamepad) {
+                        this.analogNeutralCalibrated = false;
+                        this.dpadState = { up:false, down:false, left:false, right:false };
+                        this.resetSticks();
+                        for (const id of Object.keys(BUTTON_MAP)) this.setButtonState(id, false);
+                        return;
+                    }
+                    this.dpadState.up = gamepad.buttons[12]?.pressed || false;
+                    this.dpadState.down = gamepad.buttons[13]?.pressed || false;
+                    this.dpadState.left = gamepad.buttons[14]?.pressed || false;
+                    this.dpadState.right = gamepad.buttons[15]?.pressed || false;
+                    for (const [id, idx] of Object.entries(BUTTON_MAP)) {
+                        const btn = gamepad.buttons[idx];
+                        if (!btn) continue;
+                        if (Object.prototype.hasOwnProperty.call(TRIGGER_BUTTONS, id)) {
+                            if (!this.isArcade)
+                                this.setTriggerPressure(id, this.getTriggerPressure(btn));
+                            else
+                                this.setButtonState(id, btn.pressed || btn.value > 0.1);
+                        } else if (Object.prototype.hasOwnProperty.call(DPAD_BUTTONS, id)) {
+                            this.setButtonState(id, btn.pressed);
                         } else {
-                            context.lineTo(x, y);
+                            this.setButtonState(id, btn.pressed || btn.value > 0.1);
                         }
                     }
-
-                    const color = this.triggerColors[id] || { r: 255, g: 255, b: 255 };
-                    const alpha = 0.22 + pressure * 0.68;
-                    context.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
-                    context.lineWidth = Math.max(1, height * (0.018 + pressure * 0.032));
-                    context.stroke();
-                    context.restore();
+                    if (!this.isArcade) {
+                        const l3 = gamepad.buttons[10]?.pressed || false;
+                        const r3 = gamepad.buttons[11]?.pressed || false;
+                        this.elements.left_joy?.classList.toggle('pressed', l3);
+                        this.elements.right_joy?.classList.toggle('pressed', r3);
+                    }
                 }
-
+                updateAnalogState(gamepad) {
+                    this.calibrateNeutral(gamepad);
+                    if (this.isArcade) {
+                        const { x, y } = this.computeArcadeStick(gamepad);
+                        this.updateArcadeStick(x, y);
+                    } else {
+                        if (gamepad && gamepad.axes.length >= 2) {
+                            this.updateKnob('ls',
+                                this.normalizeAxis(gamepad.axes[0], this.analogNeutral.ls?.x ?? 0),
+                                this.normalizeAxis(gamepad.axes[1], this.analogNeutral.ls?.y ?? 0));
+                        }
+                        if (gamepad && gamepad.axes.length >= 4) {
+                            this.updateKnob('rs',
+                                this.normalizeAxis(gamepad.axes[2], this.analogNeutral.rs?.x ?? 0),
+                                this.normalizeAxis(gamepad.axes[3], this.analogNeutral.rs?.y ?? 0));
+                        }
+                    }
+                }
                 update() {
-                    const gamepad = this.getGamepad();
-                    this.updateGamepadState(gamepad);
-                    this.updateAnalogState(gamepad);
+                    const gp = this.getGamepad();
+                    this.updateGamepadState(gp);
+                    this.updateAnalogState(gp);
                 }
-
                 animate() {
                     this.update();
-                    this.drawTriggerGraph('lt');
-                    this.drawTriggerGraph('rt');
+                    if (!this.isArcade) {
+                        this.drawTriggerGraph('lt');
+                        this.drawTriggerGraph('rt');
+                    } else this.drawStickTrail();
                     requestAnimationFrame(() => this.animate());
                 }
             }
-
             document.addEventListener('DOMContentLoaded', () => {
-                window.xboxOverlay = new XboxControllerOverlay();
+                window.buboController = new BuboController();
             });
         })();
     </script>

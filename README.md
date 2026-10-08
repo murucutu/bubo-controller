@@ -5,6 +5,9 @@
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](LICENSE)
 [![Made for OBS](https://img.shields.io/badge/made%20for-OBS-9146FF.svg)](https://obsproject.com/)
 [![Language: PT-BR](https://img.shields.io/badge/lang-EN%20%7C%20PT--BR-success.svg)](#languages)
+![Version](https://img.shields.io/badge/version-v1.2610.001-9146FF.svg)
+
+**Version:** `v1.2610.001` · **Scheme:** `v1.YYMM.XXX` (v1 = published · YYMM = build month · XXX = sprint number, resets monthly) — see [CHANGELOG.md](CHANGELOG.md).
 
 **Languages:** English · [Português (BR)](README.pt.md)
 
@@ -12,7 +15,7 @@
 
 ## About
 
-Bubo Controller is a single-file HTML overlay that reads the browser's [Gamepad API](https://developer.mozilla.org/en-US/docs/Web/API/Gamepad_API) and draws an Xbox-style controller on your OBS scene in real time. Triggers are pressure-sensitive, analog sticks are calibrated, and every button color is individually customizable.
+Bubo Controller is a single-file HTML overlay that reads the browser's [Gamepad API](https://developer.mozilla.org/en-US/docs/Web/API/Gamepad_API) and draws a gamepad on your OBS scene in real time. It supports multiple controller layouts (Xbox, Arcade fightstick) via swappable SVG blueprints. Triggers are pressure-sensitive, analog sticks are calibrated, and every button color is individually customizable.
 
 **Why "Bubo"?** *Bubo* is the Latin name for the horned owl and the owl that accompanied Minerva, the Roman goddess of wisdom. The owl has watched over streamers since ancient times — and now it watches your gamepad. 🦉
 
@@ -22,16 +25,20 @@ The project is dedicated to the **public domain** ([The Unlicense](LICENSE)) —
 
 ## Features
 
-- ✅ Single-file HTML — no build, no dependencies, no external requests (except `masks/bg_dark.png`)
+- ✅ Single-file HTML — no build, no dependencies, no external requests
+- ✅ **Multiple controller layouts** via SVG blueprints (`?controller=xbox|arcade`)
 - ✅ Standard Gamepad API (works with Xbox, PlayStation, generic controllers)
-- ✅ Pressure-sensitive triggers LT/RT with reactive waveform graph
-- ✅ Calibrated analog sticks LS/RS with dead zone
+- ✅ Pressure-sensitive triggers LT/RT with reactive waveform graph (Xbox layout)
+- ✅ Calibrated analog sticks with dead zone
+- ✅ **Arcade layout** with ghost-glow stick trail (1/3 knob size, analog + D-pad capture)
 - ✅ Per-button colors via CSS variables (`--color-a`, `--color-b`, …)
+- ✅ **ABXY color schemes** via URL (`?color=xbox|playstation`)
 - ✅ Button labels swappable via URL (`?icons=xbox|playstation|nintendo|none`)
+- ✅ **Opacity layering system** — 40% background + 40% buttons = ~64% combined; 100% on press
 - ✅ Auto-scales to any OBS Browser Source size while preserving aspect ratio
 - ✅ Optional fit modes (`?fit=contain|cover`)
 - ✅ Debug mode (double-click the overlay) for visual inspection
-- ✅ Accessibility: `aria-label` on interactive elements, `aria-hidden` on decorative
+- ✅ SVG-based art (Track C architecture — inline SVG, JS-animated)
 
 ---
 
@@ -55,11 +62,13 @@ The project is dedicated to the **public domain** ([The Unlicense](LICENSE)) —
 
 | Parameter | Values | Description |
 | --------- | ------ | ----------- |
+| `?controller=` | `xbox` (default) / `arcade` | Controller layout to display |
+| `?color=` | `xbox` / `playstation` | ABXY color scheme (default: all white) |
+| `?icons=` | `xbox` (default) / `playstation` / `nintendo` / `none` | Button label text set |
 | `?scale=X` | any positive number | Manual scale override (e.g. `?scale=2` = 2× zoom) |
 | `?fit=` | `contain` (default) / `cover` | How overlay fits the source: contain = preserve aspect with padding; cover = fill source, may clip sides |
-| `?icons=` | `xbox` (default) / `playstation` / `nintendo` / `none` | Button label set |
 
-Combine freely: `?fit=cover&icons=playstation&scale=2`
+Combine freely: `?controller=arcade&color=xbox&icons=playstation&scale=2`
 
 ---
 
@@ -69,32 +78,29 @@ All configuration lives in `:root` at the top of the `<style>` block in `index.h
 
 ```css
 :root {
-    --accent: #FFFFFF;        /* fallback color for any button */
-    --color-bg: #000000;      /* background tint reference */
+    --accent: #FFFFFF;        /* global color (white on black, or swap for dark on white) */
+    --color-bg: #000000;      /* background tint (used for label text contrast) */
 
-    /* Per-button colors (default = --accent) */
+    /* ABXY colors (set by ?color= or manually) */
     --color-a: var(--accent);
     --color-b: var(--accent);
     --color-x: var(--accent);
     --color-y: var(--accent);
-    /* ...etc */
 
-    --label-a: "A";          /* text label per button */
-    --label-b: "B";
-    /* ...etc */
+    /* Opacity system */
+    --bg-opacity: 0.4;              /* background rect fill opacity */
+    --button-opacity: 0.4;          /* unpressed button fill opacity */
+    --button-pressed-opacity: 1;    /* pressed button fill opacity */
 
-    --stroke: 5px;            /* border thickness */
-    --opacity: 0.80;          /* overall overlay opacity */
+    /* Stick trail (Arcade only) */
+    --stick-trail-length: 30;       /* number of trail frames */
+    --stick-trail-fade: 0.04;       /* fade rate per frame (lower = softer) */
+    --stick-trail-radius: 12;       /* trail circle radius (1/3 of knob) */
+    --stick-trail-blur: 12px;       /* ghost glow blur */
 }
 ```
 
-Make the A button red:
-
-```css
-:root { --color-a: #FF0000; }
-```
-
-See **[CUSTOMIZATION_GUIDE.md](CUSTOMIZATION_GUIDE.md)** for full palettes, button shapes, custom backgrounds, and label sets.
+See **[CUSTOMIZATION_GUIDE.md](CUSTOMIZATION_GUIDE.md)** for full palettes, opacity tuning, stick trail tuning, and how to create custom controller SVGs.
 
 ---
 
@@ -102,16 +108,20 @@ See **[CUSTOMIZATION_GUIDE.md](CUSTOMIZATION_GUIDE.md)** for full palettes, butt
 
 | File | Audience | What it covers |
 | ---- | -------- | --------------- |
-| [CUSTOMIZATION_GUIDE.md](CUSTOMIZATION_GUIDE.md) | Users | Colors, button shapes, labels, custom backgrounds |
+| [AGENT.md](AGENT.md) | Agent / Senior PM | Operating manual for the AI agent acting as Senior PM (versioning policy, invariants, never-rules, DoD) |
+| [CHANGELOG.md](CHANGELOG.md) | Everyone | Versioned history, with verbatim conversation excerpts per Sprint |
+| [CUSTOMIZATION_GUIDE.md](CUSTOMIZATION_GUIDE.md) | Users | Colors, opacity system, stick trail tuning, label sets |
 | [DESIGN_GUIDE.md](DESIGN_GUIDE.md) | Designers | Grid, proportions, spacing, z-index, animation timing |
-| [LABEL_PACKS_GUIDE.md](LABEL_PACKS_GUIDE.md) | Advanced | SVG sprite sheets (`<symbol>` + `<use>`) for icon packs |
+| [VARIANTS.md](VARIANTS.md) | Designers/Contributors | SVG blueprint workflow; how to add new controller layouts |
+| [LABEL_PACKS_GUIDE.md](LABEL_PACKS_GUIDE.md) | Advanced | SVG sprite sheets for icon packs |
 | [ROADMAP.md](ROADMAP.md) | Contributors | Status, planned variants, contribution hooks |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributors | How to fork, build, test, and submit PRs |
-| [masks/README.md](masks/README.md) | Artists | How to create custom `bg_dark.png` from scratch |
+| [masks/controllers/README.md](masks/controllers/README.md) | Artists | How to create/edit controller SVG blueprints |
+| [masks/README.md](masks/README.md) | Artists | How to create custom assets |
 | [masks/labels/README.md](masks/labels/README.md) | Advanced | How to create sprite packs for label icons |
 | [docs/AUDIT.md](docs/AUDIT.md) | Maintainers | Internal design audit history (in Portuguese) |
 
-The overlay at runtime only needs `index.html` + `masks/bg_dark.png`. Everything else is documentation.
+The overlay at runtime only needs `index.html` (SVGs are inlined). The `masks/controllers/` SVGs are the source-of-truth blueprints — edit them, then re-inline into `index.html`.
 
 ---
 
@@ -119,35 +129,41 @@ The overlay at runtime only needs `index.html` + `masks/bg_dark.png`. Everything
 
 ```
 .
-├── index.html              # Overlay (HTML + CSS + JS inline, single file)
+├── index.html                  # Unified overlay (Xbox + Arcade, SVG inline)
 ├── masks/
-│   ├── bg_dark.png         # Background art (3840×2160)
-│   ├── README.md           # How to create custom backgrounds
+│   ├── controllers/
+│   │   ├── xbox.svg            # Xbox controller SVG blueprint (source of truth)
+│   │   ├── arcade.svg          # Arcade fightstick SVG blueprint (source of truth)
+│   │   └── README.md           # How to create/edit controller SVGs
+│   ├── README.md               # Custom assets guide
 │   └── labels/
 │       ├── sprite_example.svg  # SVG sprite pack model (Phase 5)
 │       └── README.md           # How to create sprite packs
-├── CUSTOMIZATION_GUIDE.md  # Colors, shapes, labels
-├── DESIGN_GUIDE.md         # Grid, proportions, timing
-├── LABEL_PACKS_GUIDE.md    # SVG sprite sheets
-├── ROADMAP.md              # Public roadmap
-├── CONTRIBUTING.md         # How to contribute
-├── README.md               # This file (English)
-├── README.pt.md            # Portuguese version
-├── LICENSE                 # The Unlicense (public domain)
+├── AGENT.md                    # Senior PM operating manual (versioning, invariants, DoD)
+├── CHANGELOG.md                # Versioned history (with conversation excerpts)
+├── VERSION                     # Current version (v1.YYMM.XXX)
+├── CUSTOMIZATION_GUIDE.md      # Colors, opacity, stick trail, labels
+├── DESIGN_GUIDE.md             # Grid, proportions, timing
+├── VARIANTS.md                 # SVG workflow for new controller layouts
+├── LABEL_PACKS_GUIDE.md        # SVG sprite sheets
+├── ROADMAP.md                  # Public roadmap
+├── CONTRIBUTING.md             # How to contribute
+├── README.md                   # This file (English)
+├── README.pt.md                # Portuguese version
+├── LICENSE                     # The Unlicense (public domain)
 ├── .gitignore
 └── docs/
-    ├── AUDIT.md            # Internal audit history (PT-BR)
-    └── AUDIT_PLAN.md       # Audit planning notes (PT-BR)
+    ├── AUDIT.md                # Internal audit history (PT-BR)
+    └── AUDIT_PLAN.md           # Audit planning notes (PT-BR)
 ```
 
 ---
 
 ## Roadmap (public, high-level)
 
-The base Xbox layout is the **open core** of the project. Variants for other controllers are planned for the future. Detailed plans (layouts, button mappings, architecture decisions) are kept private by the maintainer during development.
+The Xbox and Arcade layouts are the **open core** of the project. Variants for other controllers are planned for the future. Detailed plans are kept private by the maintainer during development.
 
 Variants under consideration:
-- Arcade fightstick for fighting games
 - PlayStation DualSense with ✕ ○ □ △ symbols and touchpad
 - Nintendo Pro Controller with swapped A/B/X/Y layout
 
@@ -169,8 +185,8 @@ This is a public-domain project. There's no formal contribution process — fork
 
 ## Acknowledgments
 
-- **Etymology**: *Bubo* — Latin for horned owl. In Roman mythology, Bubo was the owl familiar of Minerva, goddess of wisdom. The owl's reputation for night-vision and vigilance fits an overlay that watches your controller.
-- **Etymology (PT-BR)**: The maintainer's nickname "Murucutu" comes from Tupi-Guarani for owl (*Asio clamator* — striped owl), tying the Latin and Tupi traditions together.
+- **Etymology**: *Bubo* — Latin for horned owl. In Roman mythology, Bubo was the owl familiar of Minerva, goddess of wisdom.
+- **Etymology (PT-BR)**: The maintainer's nickname "Murucutu" comes from Tupi-Guarani for owl (*Asio clamator*).
 - **Standard Gamepad API** — for being stable enough to drop WebHID entirely.
 - **OBS Studio** — for being excellent software and free.
 
@@ -179,5 +195,3 @@ This is a public-domain project. There's no formal contribution process — fork
 ## License
 
 **[The Unlicense](LICENSE)** — public domain dedication. You can use, copy, modify, publish, distribute, sublicense, and sell this software without any restriction. No attribution required.
-
-> The maintainer offers **paid customization services** (custom-themed overlays for streamers). The open-source base remains free forever. If you want a custom variant (themed, branded, or proprietary layout), contact the maintainer via GitHub or your usual streaming channels.

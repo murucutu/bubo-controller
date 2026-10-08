@@ -1,6 +1,6 @@
 # Customization Guide
 
-This guide covers everything you can visually adjust in the overlay: colors (global and per-button), button shapes, custom backgrounds, and ready-to-copy style presets.
+This guide covers everything you can visually adjust in the overlay: colors, opacity system, stick trail tuning, button labels, and how to create custom controller SVGs.
 
 All changes are made by editing `:root` at the top of the `<style>` block in `index.html`. No build, no compilation — just edit and reload the page in OBS.
 
@@ -8,24 +8,30 @@ All changes are made by editing `:root` at the top of the `<style>` block in `in
 
 ## Table of Contents
 
+- [Controller Selection](#controller-selection)
 - [Colors](#colors)
   - [Global colors](#global-colors)
+  - [ABXY color schemes (`?color=`)](#abxy-color-schemes-color)
   - [Per-button colors](#per-button-colors)
-  - [Ready-made palettes](#ready-made-palettes)
-- [Labels (button text)](#labels-button-text)
-  - [Default label set (Xbox)](#default-label-set-xbox)
-  - [Icon sets via URL (`?icons=`)](#icon-sets-via-url-icons)
-  - [Custom label per button](#custom-label-per-button)
-  - [Label styling (font, size)](#label-styling-font-size)
-  - [When the label becomes invisible](#when-the-label-becomes-invisible)
-- [Button shapes](#button-shapes)
-  - [ABXY (border-radius)](#abxy-border-radius)
-  - [D-pad (SVG polygons)](#d-pad-svg-polygons)
-  - [Analog sticks](#analog-sticks)
-  - [Triggers (corners)](#triggers-corners)
-- [Custom backgrounds (masks/)](#custom-backgrounds-masks)
-- [Stroke, opacity, and analog stick travel](#stroke-opacity-and-analog-stick-travel)
-- [Light vs dark themes](#light-vs-dark-themes)
+- [Opacity System](#opacity-system)
+- [Button Labels (`?icons=`)](#button-labels-icons)
+- [Stick Trail (Arcade only)](#stick-trail-arcade-only)
+- [Light vs Dark Themes](#light-vs-dark-themes)
+
+---
+
+## Controller Selection
+
+Choose which controller layout to display via URL:
+
+```
+index.html?controller=xbox      # Xbox-style gamepad (default)
+index.html?controller=arcade    # Arcade fightstick (Viewlix layout)
+```
+
+Each layout is driven by an SVG blueprint in `masks/controllers/`. The SVG is inlined in `index.html` as a `<template>` element; JS clones it into the DOM at runtime and animates the buttons.
+
+See [masks/controllers/README.md](masks/controllers/README.md) for how to create new controller layouts.
 
 ---
 
@@ -37,19 +43,54 @@ Two variables control the base theme:
 
 ```css
 :root {
-    --accent: #FFFFFF;     /* fallback color for any button without --color-X defined */
-    --color-bg: #000000;   /* background tint reference (not used at runtime, just documentary) */
+    --accent: #FFFFFF;     /* global color — used for all buttons and background */
+    --color-bg: #000000;   /* label text color (for contrast against buttons) */
 }
 ```
 
-- `--accent` is the default applied to all buttons that don't have their own color set.
-- `--color-bg` is not used in runtime CSS (the background comes from `masks/bg_dark.png`). It exists only to document the intended palette.
+- `--accent` is the default color applied to all buttons and the background rect.
+- `--color-bg` is used for label text fill, ensuring contrast against the button fill.
 
-To change everything to one color, just swap `--accent`. To give individual buttons specific colors, use the per-button variables (below).
+To invert to a light theme (dark buttons on white background):
+
+```css
+:root {
+    --accent: #000000;
+    --color-bg: #FFFFFF;
+}
+```
+
+### ABXY color schemes (`?color=`)
+
+Swap the ABXY color set via URL — no HTML editing needed. Colors are applied to button **outlines** (inner path) and to the pressed fill. The arcade stick trail also uses these colors in gradient (see [Stick Trail](#stick-trail-arcade-only)).
+
+| URL | A | B | X | Y |
+| --- | --- | --- | --- | --- |
+| `index.html` (default) | white | white | white | white |
+| `?color=xbox` | green `#4CAF50` | red `#E5342A` | blue `#0E7DC0` | amber `#F2C200` |
+| `?color=playstation` | blue `#2E6DB4` (✕ Cross) | red `#E5342A` (○ Circle) | pink `#FF69F8` (□ Square) | green `#3EE3A1` (△ Triangle) |
+
+#### Official color sources
+
+**Xbox** (verified from Xbox 360 / Xbox One controller):
+- A = green `#4CAF50` — Material Design green 500, close to Xbox's signature green
+- B = red `#E5342A` — Xbox red
+- X = blue `#0E7DC0` — Xbox blue
+- Y = amber `#F2C200` — Xbox amber/yellow
+
+**PlayStation** (verified from PS1/PS4 designer Teiyu Goto's official statement):
+- Cross (✕) = blue `#2E6DB4` — "yes" decision color
+- Circle (○) = red `#E5342A` — "no" decision color
+- Square (□) = pink `#FF69F8` — represents a piece of paper (menu items)
+- Triangle (△) = green `#3EE3A1` — represents viewpoint/direction (head)
+
+> Source: Teiyu Goto, Sony designer, in interviews about the original PlayStation controller (1994). The colors have remained consistent across PS1, PS2, PS3, PS4, and PS5.
+
+The `?color=` parameter only sets the 4 face button colors (A/B/X/Y). All other buttons (LB, RB, LT, RT, D-pad, sticks) remain `--accent` (white by default).
 
 ### Per-button colors
 
-Each button has its own variable, defaulting to `--accent`:
+Each button has its own CSS variable, defaulting to `--accent`:
 
 | Button(s)            | CSS variable        |
 | -------------------- | ------------------- |
@@ -57,26 +98,13 @@ Each button has its own variable, defaulting to `--accent`:
 | LB, RB (bumpers)     | `--color-lb`, `--color-rb` |
 | LT, RT (triggers)    | `--color-lt`, `--color-rt` |
 | LS, RS (analog sticks) | `--color-ls`, `--color-rs` |
+| Arcade stick         | `--color-stick` |
 | D-pad (4 directions) | `--color-dpad` (one color for all 4) |
 | View                 | `--color-view`      |
 | Menu                 | `--color-menu`      |
+| L3, R3 (stick click) | `--color-l3`, `--color-r3` |
 
-#### Example 1 — Official Xbox layout (colored ABXY)
-
-```css
-:root {
-    --color-a: #2EBD32;   /* green */
-    --color-b: #E3121A;   /* red */
-    --color-x: #0066CC;   /* blue */
-    --color-y: #F2BB1D;   /* yellow */
-}
-```
-
-#### Example 2 — PlayStation layout (symbols, no color)
-
-Keep `--color-a`…`--color-y` as `var(--accent)` (default white). The visual difference between Xbox and PlayStation is in the shapes, not colors. See [Button shapes](#button-shapes) below.
-
-#### Example 3 — Neon theme
+#### Example — custom neon theme
 
 ```css
 :root {
@@ -87,82 +115,79 @@ Keep `--color-a`…`--color-y` as `var(--accent)` (default white). The visual di
 }
 ```
 
-#### Example 4 — Pastel theme
-
-```css
-:root {
-    --accent: #F5E6E6;          /* light pink */
-    --color-a: #FFB3BA;
-    --color-b: #BAE1FF;
-    --color-x: #B5EAD7;
-    --color-y: #FFE5B4;
-}
-```
-
-#### Example 5 — Red on A only (highlight)
-
-```css
-:root {
-    --color-a: #FF0000;   /* everything white, A red */
-}
-```
-
-### How the color is applied
-
-Each button receives `--button-color: var(--color-X)` via CSS. Borders, fill when pressed, trigger gradients, glow shadow, and even the trigger waveform canvas — everything reads the button's color.
-
-Translucency is done via `color-mix(in srgb, <color> X%, transparent)` in CSS, and via `rgba()` in the canvas (reads the color once on init in `parseColorToRgb`).
-
-> **Tip**: since the trigger canvas reads the color only on init, if you change the color via DevTools live, the canvas won't update. Reload the page to apply.
+> **Note**: `?color=` in the URL overrides `--color-a` through `--color-y` at load time. To use custom CSS colors for ABXY, don't use `?color=` in the URL.
 
 ---
 
-## Labels (button text)
+## Opacity System
 
-Each button can display text (or a Unicode symbol) in the center of its shape. The text is injected via `::after` and controlled by `--label-*` CSS variables.
-
-### Default label set (Xbox)
-
-By default, the overlay shows Xbox labels:
+The overlay uses a **layered opacity system** that creates visual depth:
 
 ```css
 :root {
-    --label-a: "A";  --label-b: "B";  --label-x: "X";  --label-y: "Y";
-    --label-lb: "LB";  --label-rb: "RB";
-    --label-lt: "LT";  --label-rt: "RT";
-    --label-ls: "";  --label-rs: "";     /* knobs usually without text */
-    --label-view: "";  --label-menu: ""; /* SVG icons coming in Phase 3 */
+    --bg-opacity: 0.4;              /* background rect fill opacity */
+    --button-opacity: 0.4;          /* unpressed button fill opacity */
+    --button-pressed-opacity: 1;    /* pressed button fill opacity (100%) */
+    --boundary-opacity: 0.15;       /* analog stick boundary rings */
 }
 ```
 
-### Icon sets via URL (`?icons=`)
+### How it works
 
-Swap the entire set without editing HTML — add `?icons=SET` to the OBS Browser Source URL:
+1. **Background rect** (768×324): filled with `--accent` at 40% opacity.
+2. **All buttons** (including analog stick knobs): filled with their color at 40% opacity when unpressed.
+3. **Where button overlaps background**: alpha blending produces ~64% opacity (1 − (1−0.4)×(1−0.4) = 0.64). This makes buttons appear denser than the background alone.
+4. **Pressed buttons**: fill jumps to 100% opacity — bright flash on press.
+5. **Boundary rings** (analog stick outer circles): at 15% opacity — subtle, doesn't compete with buttons.
 
-| URL                                              | ABXY labels        | Shoulder buttons |
-| ------------------------------------------------ | ------------------ | ----------------- |
-| `index.html`                                     | A B X Y (Xbox)     | LB RB LT RT       |
-| `index.html?icons=xbox`                          | A B X Y (Xbox)     | LB RB LT RT       |
-| `index.html?icons=playstation`                   | ✕ ○ □ △ (PS symbols) | L1 R1 L2 R2      |
-| `index.html?icons=nintendo`                       | B A Y X (Switch layout) | L R ZL ZR    |
-| `index.html?icons=none`                           | (no labels)       | (no labels)        |
+### Tuning the opacity
 
-#### POSITION → label mapping
+For a more subtle look (lighter overlay):
 
-Important: labels represent **what's physically on the controller**, mapped by **position** in the overlay (not by Gamepad API index).
+```css
+:root {
+    --bg-opacity: 0.25;
+    --button-opacity: 0.25;
+}
+```
 
-| Position in overlay | Xbox label | PlayStation label | Nintendo label |
-| ------------------ | ---------- | ----------------- | --------------- |
-| Bottom (A slot)     | A          | ✕ (Cross)         | B               |
-| Right  (B slot)     | B          | ○ (Circle)        | A               |
-| Left   (X slot)     | X          | □ (Square)        | Y               |
-| Top    (Y slot)     | Y          | △ (Triangle)      | X               |
+For a more visible overlay (darker buttons):
 
-> On Nintendo controllers plugged into a PC, the Gamepad API may swap indices (A might become B). This is a known browser issue, not the overlay. The visual label reflects position in the drawing, not the physical button pressed.
+```css
+:root {
+    --bg-opacity: 0.5;
+    --button-opacity: 0.6;
+}
+```
 
-### Custom label per button
+> The combined overlap opacity is approximately `bg + button − (bg × button)`. With 0.4 + 0.4: 0.4 + 0.4 − 0.16 = 0.64. With 0.5 + 0.6: 0.5 + 0.6 − 0.30 = 0.80.
 
-For your own labels (e.g., mapping to in-game actions):
+### LT/RT trigger wave effect (Xbox only)
+
+The Xbox layout preserves the original trigger wave/gradient effect. LT and RT have:
+- A gradient fill that grows from inside-out based on pressure
+- A canvas waveform overlay that reacts to pressure in real time
+
+These are overlaid on top of the SVG trigger shapes. The wave color follows `--color-lt` / `--color-rt`. This effect is **not** affected by the opacity system — it has its own opacity (72% unpressed, 100% pressed).
+
+---
+
+## Button Labels (`?icons=`)
+
+Swap the label text set via URL:
+
+| URL | ABXY labels | Shoulder labels |
+| --- | --- | --- |
+| `?icons=xbox` (default) | A B X Y | LB RB LT RT |
+| `?icons=playstation` | ✕ ○ □ △ | L1 R1 L2 R2 |
+| `?icons=nintendo` | B A Y X (Switch layout) | L R ZL ZR |
+| `?icons=none` | (no labels) | (no labels) |
+
+Labels are rendered as SVG `<text>` elements, positioned at the center of each button by JS. The label text color uses `--color-bg` for contrast.
+
+### Custom labels
+
+Edit the `--label-*` variables in `:root`:
 
 ```css
 :root {
@@ -173,202 +198,90 @@ For your own labels (e.g., mapping to in-game actions):
 }
 ```
 
-Or single characters:
-
-```css
-:root {
-    --label-a: "1";
-    --label-b: "2";
-    --label-x: "3";
-    --label-y: "4";
-}
-```
-
-You can combine `?icons=` with CSS overrides — but note the URL always wins. For permanent CSS overrides, **don't** use `?icons=` in the OBS URL.
-
-### Label styling (font, size)
+### Label font and size
 
 ```css
 :root {
     --label-font: "Inter", "Segoe UI", system-ui, sans-serif;
-    --label-size: 26px;            /* ABXY */
-    --label-size-small: 18px;       /* LB/RB/LT/RT/View/Menu */
+    --label-size: 22px;            /* ABXY */
+    --label-size-small: 16px;       /* LB/RB/LT/RT/L3/R3/View/Menu */
     --label-weight: 700;
 }
 ```
 
-- `--label-size` applies to ABXY (larger buttons, 57.5×57.5px).
-- `--label-size-small` applies to LB/RB/LT/RT (smaller buttons, 92×62 and 185×62).
-- To scale all up, adjust both.
+---
 
-#### Example — mono font labels, 30px size
+## Stick Trail (Arcade only)
+
+The arcade layout features a ghost-glow stick trail (inspired by Arc System Works fighting games). When the stick moves, a trail of fading circles follows behind the knob.
+
+### Trail colors
+
+By default (no `?color=` parameter), the trail is **white**. When `?color=xbox` or `?color=playstation` is set, the trail uses a **4-color gradient** following the ABXY sequence:
+
+| `?color=` | Trail colors (newest → oldest) | Meaning |
+| --- | --- | --- |
+| (none) | white → white → white → white | Default neutral |
+| `xbox` | green → red → blue → amber | A → B → X → Y |
+| `playstation` | blue → red → pink → green | Cross → Circle → Square → Triangle |
+
+The newest trail position (closest to the knob) uses the first color (A/Cross), and the oldest position (farthest) uses the fourth color (Y/Triangle). The trail is divided into 4 equal segments, each painted in its respective color.
+
+### Trail parameters
 
 ```css
 :root {
-    --label-font: "JetBrains Mono", "Fira Code", monospace;
-    --label-size: 30px;
-    --label-size-small: 22px;
+    --stick-trail-length: 30;       /* number of trail frames (higher = longer trail) */
+    --stick-trail-fade: 0.04;       /* fade rate per frame (lower = softer/longer fade) */
+    --stick-trail-radius: 12;       /* trail circle radius in px (1/3 of knob radius) */
+    --stick-trail-blur: 12px;       /* ghost glow blur in px */
+    --stick-max-offset: 72px;       /* max knob travel from center */
 }
 ```
 
-### When the label becomes invisible
+### Tuning the trail
 
-Watch out for combinations that erase the text:
-
-- **Button colored X with label in the same color X**: text disappears against the transparent background. Use a different label color via `--label-*` color override (advanced).
-- **Button pressed**: the fill becomes `var(--button-color)` (e.g., red) and the label becomes `var(--color-bg)` (e.g., black) automatically. If `--color-bg` is wrong, the pressed label disappears.
-- **`?icons=none`**: removes all labels (just the button shapes).
-
-> In light themes (`--accent: #000`, `--color-bg: #FFF`), the pressed label is white on black fill — visible. In dark themes (`--accent: #FFF`, `--color-bg: #000`), the pressed label is black on white fill — also visible.
-
----
-
-## Button shapes
-
-Each button family uses a different drawing technique. Below is what each controls and how to change it.
-
-### ABXY (border-radius)
-
-A/B/X/Y buttons are `<div>` elements made circular via `border-radius: 50%`. To change the shape, edit the button rule:
-
-```css
-.a { border-radius: 50%; }   /* circle (default) */
-.a { border-radius: 0; }    /* square */
-.a { border-radius: 12px; } /* rounded corners */
-.a { border-radius: 8px; }  /* soft corners */
-.a { border-radius: 50% 0 50% 0; }  /* leaf / petal */
-.a {
-    border-radius: 0;
-    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);  /* diamond */
-}
-```
-
-Applies the same to `.b`, `.x`, `.y`.
-
-### D-pad (SVG polygons)
-
-The 4 D-pad directions are SVGs with `<polygon>` in `viewBox="-1 -1 102 102"` (space so the stroke isn't clipped). The points form trapezoidal arrows.
-
-#### Current points (reference)
-
-| Direction | Polygon points                              |
-| --------- | -------------------------------------------- |
-| Up        | `0,0  100,0  100,67.44  50,100  0,67.44`     |
-| Down      | `50,0  100,32.56  100,100  0,100  0,32.56`   |
-| Left      | `0,0  67.44,0  100,50  67.44,100  0,100`     |
-| Right     | `32.56,0  100,0  100,100  32.56,100  0,50`   |
-
-#### Variation 1 — Square D-pad (no arrow)
-
-```html
-<polygon points="0,0 100,0 100,100 0,100" />
-```
-
-#### Variation 2 — Diamond D-pad (Pinball-style)
-
-```html
-<polygon points="50,0 100,50 50,100 0,50" />
-```
-
-#### Variation 3 — Thick cross D-pad
-
-Increase `width`/`height` to `80×80` (instead of 54×80) and use a diamond polygon. Adjust `left`/`top` to keep alignment at the D-pad center.
-
-> For complex layouts, see [DESIGN_GUIDE.md](DESIGN_GUIDE.md) — it explains the grid and spacing for planning a fully new D-pad.
-
-### Analog sticks
-
-Each analog stick is an `.analog-boundary` (outer circle) + `.analog-knob` (inner circle that moves).
-
-```css
-.analog-boundary { border-radius: 50%; }       /* default circular */
-.analog-knob      { border-radius: 50%; }      /* default circular */
-```
-
-#### Variation 1 — Square knob
-
-```css
-.analog-knob { border-radius: 0; }
-```
-
-#### Variation 2 — Square boundary, circular knob (arcade-style)
-
-```css
-.analog-boundary { border-radius: 8px; }
-.analog-knob      { border-radius: 50%; }
-```
-
-#### Knob size
-
-```css
-.analog-knob {
-    width: 75%;     /* default 66.67% — increase to fill more of the boundary */
-    height: 75%;
-}
-```
-
-### Triggers (corners)
-
-LT/RT have `border-radius: 12px` by default. Variations:
-
-```css
-.lt, .rt { border-radius: 0; }      /* pure rectangle */
-.lt, .rt { border-radius: 999px; }  /* pill */
-.lt, .rt { border-radius: 12px 12px 0 0; }  /* only top corners rounded */
-```
-
----
-
-## Custom backgrounds (masks/)
-
-The overlay background is a PNG file called `masks/bg_dark.png` (3840×2160, 16:9 format). The CSS crops the central region (768×324) and uses it as the controller backdrop.
-
-To swap the background:
-
-1. **Simply replace the file** — create a new `masks/bg_dark.png` (different name, edit `background-image` in CSS). Keep size 3840×2160 and the controller drawn in the central region (`x=1536..2304, y=1728..2052`).
-2. **Change the crop** — adjust `--crop-x` and `--crop-y` in `:root` to show a different region of the image.
-3. **Change the base size** — if your image is 1920×1080 instead of 3840×2160, adjust `--base-width`/`--base-height` and recalculate `--crop-x`/`--crop-y` proportionally.
-
-See **[masks/README.md](masks/README.md)** for a complete guide on drawing a background from scratch, including the reference grid and where each button should land on the base image.
-
-### Light background (light theme)
-
-For a light theme:
-
-1. Create `masks/bg_light.png` with a white background instead of black.
-2. In CSS, swap `--accent: #FFFFFF` to `--accent: #000000` (black on white).
-3. Update `background-image: url('masks/bg_light.png')`.
-
-You can keep both in the project and comment/uncomment as needed.
-
----
-
-## Stroke, opacity, and analog stick travel
-
+**Softer, longer trail** (more ethereal):
 ```css
 :root {
-    --stroke: 5px;             /* border thickness (default 5px at 1280x720 scale) */
-    --opacity: 0.80;           /* overall overlay opacity (0 = invisible, 1 = opaque) */
-    --analog-max-offset: 28.6667px;  /* max knob travel within the boundary */
+    --stick-trail-length: 40;
+    --stick-trail-fade: 0.02;
+    --stick-trail-blur: 16px;
 }
 ```
 
-### When to increase `--stroke`
+**Sharper, shorter trail** (more precise):
+```css
+:root {
+    --stick-trail-length: 15;
+    --stick-trail-fade: 0.10;
+    --stick-trail-blur: 6px;
+}
+```
 
-- On 4K streams (3840×2160), the overlay scales 5×. A `--stroke: 5px` becomes 25px visually — usually fine.
-- For smaller streams (720p), reduce to 3px.
+**Bigger trail circles** (more visible):
+```css
+:root {
+    --stick-trail-radius: 18;       /* default 12; knob radius is 36 */
+}
+```
 
-### When to adjust `--analog-max-offset`
+### How the trail works
 
-- If the knob "jumps" outside the boundary when pushing the stick to the extreme, increase the value.
-- If the knob barely moves, decrease it.
-- Default `28.6667px` comes from the boundary size (172px) minus the knob (66.67% of 172 = 114.67px), divided by 4 for comfortable visual travel.
+1. Each animation frame, the knob's current position is recorded.
+2. The trail stores the last N positions (N = `--stick-trail-length`).
+3. A canvas draws:
+   - A connecting line (motion blur effect) with ghost glow
+   - N circles at 1/3 the knob size, with alpha increasing from old to new
+4. Only the older positions (extremities) get the blur shadow — the newest positions are sharp.
+
+### Analog + D-pad capture
+
+The arcade stick captures both analog axes (axes 0, 1) and D-pad buttons (12-15) simultaneously. If any D-pad direction is pressed, it overrides the analog position for that axis. This allows fightsticks that report either analog or digital input to work seamlessly.
 
 ---
 
-## Light vs dark themes
-
-The project ships with `--accent: #FFFFFF` (white on dark background). To invert:
+## Light vs Dark Themes
 
 ### Dark theme (default)
 
@@ -377,7 +290,6 @@ The project ships with `--accent: #FFFFFF` (white on dark background). To invert
     --accent: #FFFFFF;
     --color-bg: #000000;
 }
-/* masks/bg_dark.png */
 ```
 
 ### Light theme
@@ -387,26 +299,21 @@ The project ships with `--accent: #FFFFFF` (white on dark background). To invert
     --accent: #000000;
     --color-bg: #FFFFFF;
 }
-/* masks/bg_light.png (create a light version of the background) */
 ```
 
-### Adaptive theme (light or dark based on prefers-color-scheme)
+### Adaptive theme (follows system preference)
 
 ```css
 :root {
     --accent: #FFFFFF;
     --color-bg: #000000;
 }
-
 @media (prefers-color-scheme: light) {
     :root {
         --accent: #000000;
         --color-bg: #FFFFFF;
     }
-    .controller-bg {
-        background-image: url('masks/bg_light.png');
-    }
 }
 ```
 
-> OBS Browser Source inherits the system color scheme. If your OS is in dark mode, the overlay is dark; in light mode, it's light.
+> OBS Browser Source inherits the OS color scheme. If your OS is in dark mode, the overlay is dark; in light mode, it's light.
