@@ -5,6 +5,9 @@
 [![License: Unlicense](https://img.shields.io/badge/licença-Unlicense-blue.svg)](LICENSE)
 [![Feito para OBS](https://img.shields.io/badge/feito%20para-OBS-9146FF.svg)](https://obsproject.com/)
 [![Idiomas: EN | PT-BR](https://img.shields.io/badge/idiomas-EN%20%7C%20PT--BR-success.svg)](#idiomas)
+![Versão](https://img.shields.io/badge/version-v1.2610.002-9146FF.svg)
+
+**Versão:** `v1.2610.002` · **Esquema:** `v1.YYMM.XXX` (v1 = publicado · YYMM = mês da build · XXX = número da Sprint, reseta mensalmente) — veja [CHANGELOG.md](CHANGELOG.md).
 
 **Idiomas:** [English](README.md) · Português (BR)
 
@@ -117,9 +120,12 @@ Veja **[CUSTOMIZATION_GUIDE.md](CUSTOMIZATION_GUIDE.md)** para paletas completas
 │   └── labels/
 │       ├── sprite_example.svg  # Modelo de sprite pack SVG (Fase 5)
 │       └── README.md           # Como criar sprite packs
+├── AGENT.md                    # Manual operacional do Senior PM (versionamento, invariantes, DoD)
+├── CHANGELOG.md                # Histórico versionado (com trechos das conversas)
+├── VERSION                     # Versão atual (v1.YYMM.XXX)
 ├── CUSTOMIZATION_GUIDE.md      # Cores, opacidade, rastro do stick, labels
 ├── DESIGN_GUIDE.md             # Grid, proporções, timing
-├── VARIANTS.md                  # Workflow SVG para novos layouts de controle
+├── VARIANTS.md                 # Workflow SVG para novos layouts de controle
 ├── LABEL_PACKS_GUIDE.md        # Sprite sheets SVG
 ├── ROADMAP.md                  # Roadmap público
 ├── CONTRIBUTING.md             # Como contribuir

@@ -1,6 +1,6 @@
 # AGENT.md — Bubo Controller · Senior PM Operating Manual
 
-> **Version:** v1.2610.001
+> **Version:** v1.2610.002
 > **Scope:** This document is the binding operating manual for any AI agent (and any human acting in an autonomous PM capacity) working on the **Bubo Controller** project under the **Senior Project Manager** role.
 > **Canonical language:** English (matches `README.md`). User-facing communication is in **Portuguese (BR)** — conversation excerpts quoted in `CHANGELOG.md` are preserved verbatim in their original language.
 > **Authority:** Once this document is accepted by the agent, it **overrides** any generic agent defaults that conflict with it. The agent adopts the scope of this document as its behavior guide.
@@ -463,7 +463,7 @@ If a community PR contributes the arcade fightstick variant, it conflicts with t
 
 ### 9.4 Drift between docs and code
 
-The project's biggest **existing** technical debt (as of `v1.2610.001`): `masks/README.md` and `DESIGN_GUIDE.md` still describe the old PNG-based architecture (`bg_dark.png`), while `index.html` has migrated to Track C (SVG inline, no `bg_dark.png`). This drift is logged in `CHANGELOG.md` and `ROADMAP.md` as a Sprint task.
+The project's biggest technical debt in this category was logged in `v1.2610.001` (`masks/README.md` and `DESIGN_GUIDE.md` still described the old PNG-based architecture while `index.html` had migrated to Track C). That specific drift was **resolved in `v1.2610.002`** — see [CHANGELOG.md](CHANGELOG.md).
 
 General mitigation: every Sprint that touches `index.html` architecture must re-verify `masks/README.md`, `DESIGN_GUIDE.md`, and `CUSTOMIZATION_GUIDE.md` for stale references. The DoD checklist (§7.1) includes "docs reflect the change".
 
@@ -589,6 +589,7 @@ Decision categories:
 | Version | Date | Summary |
 | --- | --- | --- |
 | v1.2610.001 | 2026-10-08 | Initial publication. Established Senior PM operating manual, versioning policy (v1.YYMM.XXX), documentation charter (incl. conversation excerpt requirement), 8 architectural invariants, 12 Never-rules, DoD checklist with mandatory Agent Browser verification, risk management framework. Synced local Track C version to the remote repo. |
+| v1.2610.002 | 2026-10-08 | Version bump only. No rule changes (documentation-only Sprint for the project: Track C doc cleanup in `masks/README.md`, `DESIGN_GUIDE.md`, `docs/AUDIT.md`, `docs/AUDIT_PLAN.md`; `README.pt.md` alignment). §9.4 updated to record that the v1.2610.001 doc-drift was resolved this Sprint. |
 
 ---
 

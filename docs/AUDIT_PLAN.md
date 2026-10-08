@@ -1,5 +1,7 @@
 # AUDIT_PLAN.md
 
+> **Nota histórica (v1.2610.002):** Este é o plano de auditoria **original** que conduziu à consolidação do projeto em `index.html` (Track A/B, baseada em `masks/bg_dark.png`). O projeto evoluiu desde então para **Track C** (SVG inline, sem PNG) — ver [VARIANTS.md](../VARIANTS.md) e [CHANGELOG.md](../CHANGELOG.md) `v1.2610.001`. Este arquivo é preservado como registro do planejamento histórico; as referências a `bg_dark.png` e ao pipeline Python descrevem o estado **anterior**, não o atual.
+
 ## Objetivo revisado
 
 Eliminar excesso do projeto e transformar o overlay em um único arquivo HTML autocontido para OBS:

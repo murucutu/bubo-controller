@@ -8,11 +8,13 @@ This guide documents the overlay's proportion system, spacing, and layers, so an
 
 Everything here is reference — the actual source of truth is in `index.html`. This guide is the visual doctrine of the project.
 
+> **Track C note:** This guide documents the Xbox layout's proportions, spacing, and layers. In the current architecture (Track C, see [VARIANTS.md](VARIANTS.md)), the controller art lives in `masks/controllers/xbox.svg` (viewBox `0 0 768 324`) and is inlined into `index.html` as a `<template>`. The dimensions below are the **reference values** encoded in that SVG; if you edit the SVG, you are editing the source of truth. The earlier Track A/B architecture used a 3840×2160 `masks/bg_dark.png` base image with a CSS crop — that approach is **superseded** and the PNG has been removed (see [docs/AUDIT.md](docs/AUDIT.md) and [CHANGELOG.md](CHANGELOG.md) for the migration history).
+
 ---
 
 ## Table of Contents
 
-- [Base image system](#base-image-system)
+- [Canvas system (SVG viewBox)](#canvas-system-svg-viewbox)
 - [Overlay grid (controller's natural aspect)](#overlay-grid-controllers-natural-aspect)
 - [Controller drawing proportions](#controller-drawing-proportions)
 - [Button table (dimensions and positions)](#button-table-dimensions-and-positions)
@@ -23,38 +25,35 @@ Everything here is reference — the actual source of truth is in `index.html`. 
 
 ---
 
-## Base image system
+## Canvas system (SVG viewBox)
 
-All controller art is drawn on a base image **3840×2160 (4K UHD, 16:9)** called `masks/bg_dark.png`. This image has two functions:
+All controller art is drawn on an SVG canvas of **768×324** (`viewBox="0 0 768 324"`). This single canvas is both the visual overlay and the master proportions reference — everything in the SVG (and everything derived in CSS/JS) is positioned within these 768×324 units.
 
-1. Serve as the overlay's visual background (the controller silhouette).
-2. Define the master proportions — everything in CSS derives from percentages of this image.
+> **Legacy (Track A/B):** Earlier versions used a 3840×2160 base image (`masks/bg_dark.png`) and CSS-cropped a 768×324 region from it. Track C replaced this with a direct 768×324 SVG canvas — no base image, no crop. The 3840×2160 image no longer ships with the project.
 
-### Canonical divisions (in % of base)
+### Canonical divisions (in the 768×324 canvas)
 
-The base image is divided into canonical regions. All controller dimensions derive from these percentages:
+| Region                   | Width (768)        | Height (324)       | Pixels         |
+| ------------------------ | ------------------ | ------------------ | -------------- |
+| Controller width         | 100% (768px)       | —                  | 768px          |
+| Controller height        | —                  | 100% (324px)       | 324px          |
+| Top row (LT/RT)          | —                  | 33.3%              | 108px          |
+| Bottom row (rest)        | —                  | 66.7%              | 216px          |
 
-| Region                   | % of width (3840) | % of height (2160) | Pixels         |
-| ------------------------ | ----------------- | ------------------ | -------------- |
-| Controller width         | 20%               | —                  | 768px          |
-| Controller height        | —                 | 15%                | 324px          |
-| Top row (LT/RT)          | —                 | 5%                 | 108px          |
-| Bottom row (rest)        | —                 | 10%                | 216px          |
-| Crop horizontal start    | 40%               | —                  | 1536px         |
-| Crop vertical start      | —                 | 80%                | 1728px         |
+### Overlay stage = controller canvas
 
-### Central crop
-
-The visible overlay region is the central crop of the controller:
+The visible overlay region **is** the entire 768×324 SVG canvas. There is no crop, no padding — the SVG fills the overlay stage exactly:
 
 ```
-x: 1536 .. 2304  (width 768)
-y: 1728 .. 2052  (height 324)
+0,0 ─────────────────────── 768,0
+  │                          │
+  │   768 × 324 (overlay =    │
+  │       controller SVG)    │
+  │                          │
+0,324 ───────────────────── 768,324
 ```
 
-This corresponds to the **horizontal center** (40% to 60% of width) and the **lower third** (80% to 95% of height) of the base image.
-
-> If you create a variant with a different controller size (e.g., wider arcade fightstick), keep the base image at 3840×2160 and only resize the crop and button positions proportionally.
+> If you create a variant with a different controller size (e.g., a taller arcade fightstick canvas), you change the SVG's viewBox. The overlay stage in `index.html` is driven by `--overlay-width` / `--overlay-height` CSS variables; keep them in sync with the SVG viewBox.
 
 ---
 
@@ -70,7 +69,7 @@ The official overlay is **768×324 (~2.37:1)** — exactly the controller drawin
 +--------------------------------+
 ```
 
-> History: an earlier version used a 1280×720 (16:9) overlay with the controller centered, but this created ~256px of horizontal and ~198px of vertical transparent padding. On 16:9 sources (1920×1080, 3840×2160), the controller appeared small inside a large transparent frame. We reverted to the controller's natural aspect to match the `bg_dark.png` artwork and eliminate internal padding.
+> History: an earlier version used a 1280×720 (16:9) overlay with the controller centered, but this created ~256px of horizontal and ~198px of vertical transparent padding. On 16:9 sources (1920×1080, 3840×2160), the controller appeared small inside a large transparent frame. We reverted to the controller's natural aspect (768×324) to eliminate internal padding. (In Track A/B, this also matched the `bg_dark.png` crop region; in Track C, it matches the SVG viewBox directly.)
 
 ### Recommended aspect ratios for OBS Browser Source
 
@@ -202,13 +201,15 @@ The overlay follows an **8px** ruler for primary spacing and **2px** for fine ad
 
 | z-index | Element                          | Reason                                       |
 | ------- | --------------------------------- | -------------------------------------------- |
-| 1       | `.controller-bg` (PNG background) | Always below everything                     |
-| 2       | `.trigger-fill` (pressure fill)   | Above background, below canvas               |
-| 3       | Common buttons (LB, RB, View, Menu, D-pad, ABXY, analog-boundary) | Middle layer |
-| 4       | LT, RT (triggers), analog-knob     | Elements that need to appear above neighboring elements when animated |
-| 5       | `::after` (text labels)            | Above all button content                     |
+| 1       | SVG background `<rect>` (the overlay's base fill, controlled by `--color-bg` / `--bg-opacity`) | Always below everything |
+| 2       | `.trigger-fill` (pressure fill, rendered on a sibling `<canvas>` positioned via `getBBox()`) | Above background, below button outlines |
+| 3       | Common buttons (LB, RB, View, Menu, D-pad, ABXY, analog-boundary — the inner paths of each `<g id="...">` in the SVG) | Middle layer |
+| 4       | LT, RT (triggers), analog-knob, arcade stick + trail (`<canvas>` for the ghost-glow trail) | Elements that move or have a visual press effect |
+| 5       | `::after` / `<text>` labels (added by JS at runtime, centered on each button group) | Above all button content |
 
-> Practical rule: elements that move or have visual press effect should be at higher z-index to not be obscured by static elements.
+> Practical rule: elements that move or have a visual press effect should be at a higher z-index to not be obscured by static elements. In Track C, the SVG's paint order follows document order within each `<g>`, and the JS-managed `<canvas>` siblings sit above the SVG via CSS `z-index`.
+>
+> **Legacy (Track A/B):** the z-index 1 slot was held by `.controller-bg` (the PNG background image). Track C replaces it with the SVG's own background `<rect>` — no PNG, no `background-image` CSS.
 
 ---
 
@@ -235,27 +236,25 @@ The overlay follows an **8px** ruler for primary spacing and **2px** for fine ad
 
 ## Planning a variant
 
-Use this checklist to create a variant (arcade, DualSense, etc.):
+Use this checklist to create a variant (arcade, DualSense, etc.) in the Track C architecture (SVG inline, see [VARIANTS.md](VARIANTS.md)):
 
-1. **Decide the base drawing**:
-   - Keep 3840×2160 as the base image? Or resize?
-   - Does the central crop change size? (Arcade: probably taller.)
-2. **Define horizontal zones**:
+1. **Decide the SVG canvas**:
+   - Default viewBox is `0 0 768 324`. Keep it unless the layout truly needs a different shape (e.g., a taller fightstick).
+   - If you change the viewBox, also update `--overlay-width` / `--overlay-height` in `index.html` `:root`.
+2. **Define horizontal zones** (within the 768px width):
    - How many zones (left, center, right)?
    - What's the content of each?
-3. **Plan proportions**:
+3. **Plan proportions** (in SVG units, not % of a 3840×2160 base):
    - Use the rule of thirds for vertical division.
-   - Keep equal spacing between equivalent pairs (gap between same-group buttons).
-   - Mirror everything horizontally (left + width = 768 - right_partner_width).
-4. **Define z-index**:
-   - Background = 1, fills = 2, statics = 3, animated = 4, labels = 5.
-5. **Choose timings**:
-   - Buttons = 80ms, analog = 50ms, triggers = 50ms linear. Only change with reason.
-6. **Verify optical alignment**:
-   - Vertical centers of equivalent groups (D-pad, ABXY, LS/RS) should match within ~1px.
-7. **Document**:
-   - Update this guide or create a `DESIGN_GUIDE_ARCADE.md` equivalent.
+   - Keep equal spacing between equivalent pairs.
+   - Mirror everything horizontally (left + width = 768 − right_partner_width).
+4. **Draw in Inkscape** with each button as a named layer → `<g id="<button>">` (see [masks/controllers/README.md](masks/controllers/README.md)).
+5. **Inline into `index.html`** as `<template id="svg-<layout>">` and register in the `CONTROLLERS` map (see [VARIANTS.md](VARIANTS.md) §"Translating a new SVG to HTML").
+6. **Define z-index** for any sibling `<canvas>` effects (trigger graph, stick trail) — they sit above the SVG via CSS.
+7. **Choose timings**: buttons = 80ms, analog = 50ms, triggers = 50ms linear. Only change with reason.
+8. **Verify optical alignment**: vertical centers of equivalent groups (D-pad, ABXY, LS/RS) should match within ~1px.
+9. **Document**: update this guide or create a `DESIGN_GUIDE_<LAYOUT>.md`. Add an entry to `docs/AUDIT.md`.
 
-### Example: arcade variant (planning)
+### Example: arcade variant
 
-See [ROADMAP.md](ROADMAP.md) for the high-level plan for the fightstick for fighting games.
+The arcade fightstick layout (`?controller=arcade`) is shipped as of `v1.2610.001` (open core, see [ROADMAP.md](ROADMAP.md)). Its SVG is at [masks/controllers/arcade.svg](masks/controllers/arcade.svg).

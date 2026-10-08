@@ -1,5 +1,7 @@
 # AUDIT.md
 
+> **Nota histórica (v1.2610.002):** Este documento é o registro interno de auditoria da arquitetura do projeto. As entradas abaixo descrevem a evolução **Track A/B → Track C**. A arquitetura atual (Track C) é **SVG inline** (sem `masks/bg_dark.png`, sem crop CSS); os trechos que mencionam `bg_dark.png`, `background-image` e `--crop-x`/`--crop-y` são registros do estado **anterior** e foram preservados como histórico. Para o estado atual da arquitetura, consulte [VARIANTS.md](../VARIANTS.md), [DESIGN_GUIDE.md](../DESIGN_GUIDE.md) e o [CHANGELOG.md](../CHANGELOG.md) (especialmente a entrada `v1.2610.001` que removeu o `bg_dark.png`).
+
 ## Resumo da execução
 
 - O novo overlay foi consolidado em `index.html`.
