@@ -5,9 +5,9 @@
 [![License: Unlicense](https://img.shields.io/badge/licença-Unlicense-blue.svg)](LICENSE)
 [![Feito para OBS](https://img.shields.io/badge/feito%20para-OBS-9146FF.svg)](https://obsproject.com/)
 [![Idiomas: EN | PT-BR](https://img.shields.io/badge/idiomas-EN%20%7C%20PT--BR-success.svg)](#idiomas)
-![Versão](https://img.shields.io/badge/version-v1.2610.002-9146FF.svg)
+![Versão](https://img.shields.io/badge/version-v1.2610.003-9146FF.svg)
 
-**Versão:** `v1.2610.002` · **Esquema:** `v1.YYMM.XXX` (v1 = publicado · YYMM = mês da build · XXX = número da Sprint, reseta mensalmente) — veja [CHANGELOG.md](CHANGELOG.md).
+**Versão:** `v1.2610.003` · **Esquema:** `v1.YYMM.XXX` (v1 = publicado · YYMM = mês da build · XXX = número da Sprint, reseta mensalmente) — veja [CHANGELOG.md](CHANGELOG.md).
 
 **Idiomas:** [English](README.md) · Português (BR)
 

@@ -2,7 +2,7 @@
 
 This document lists planned variants, future improvements, and how to contribute new variants. There's no commitment to timelines — it's a statement of intent and a panel of opportunities for anyone who wants to pick them up.
 
-**Versioning:** `v1.YYMM.XXX` (see [AGENT.md](AGENT.md#3-versioning-policy-v1yymmxxx) and [CHANGELOG.md](CHANGELOG.md)). Current build: `v1.2610.002` (October 2026, Sprint 002).
+**Versioning:** `v1.YYMM.XXX` (see [AGENT.md](AGENT.md#3-versioning-policy-v1yymmxxx) and [CHANGELOG.md](CHANGELOG.md)). Current build: `v1.2610.003` (October 2026, Sprint 003).
 
 ---
 
