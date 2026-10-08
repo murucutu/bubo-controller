@@ -2,7 +2,7 @@
 
 This document lists planned variants, future improvements, and how to contribute new variants. There's no commitment to timelines — it's a statement of intent and a panel of opportunities for anyone who wants to pick them up.
 
-**Versioning:** `v1.YYMM.XXX` (see [AGENT.md](AGENT.md#3-versioning-policy-v1yymmxxx) and [CHANGELOG.md](CHANGELOG.md)). Current build: `v1.2610.002` (October 2026, Sprint 002).
+**Versioning:** `v1.YYMM.XXX` (see [AGENT.md](AGENT.md#3-versioning-policy-v1yymmxxx) and [CHANGELOG.md](CHANGELOG.md)). Current build: `v1.2610.003` (October 2026, Sprint 003).
 
 ---
 
@@ -85,6 +85,7 @@ This section records roadmap-level decisions originating from maintainer chat co
 
 - **v1.2610.001** — Adopted the `v1.YYMM.XXX` versioning scheme (v1 = published, YYMM = build month, XXX = sprint number, resets monthly). Established the Senior PM operating manual ([AGENT.md](AGENT.md)) as the binding behavior guide for the agent. Synced the maintainer's local Track C version to the remote repo (the remote's "Initial commit" was the older PNG-based version). Back-link: [CHANGELOG.md v1.2610.001](CHANGELOG.md#v1261001--2026-10-08).
 - **v1.2610.002** — Resolved the doc/code drift logged in v1.2610.001 (Track C doc cleanup in `masks/README.md`, `DESIGN_GUIDE.md`, `docs/AUDIT.md`, `docs/AUDIT_PLAN.md`; `README.pt.md` aligned with `README.md`). Maintainer raised an open question about whether `AGENT.md` should be gitignored and kept only in the chat environment; the agent analyzed trade-offs and presented a recommendation; the final decision is pending maintainer confirmation. Back-link: [CHANGELOG.md v1.2610.002](CHANGELOG.md#v1261002--2026-10-08).
+- **v1.2610.003** — **Decided:** `AGENT.md` stays public in the repo (Opção A — manter público + framing). The maintainer accepted the agent's recommendation. Added a "Public visibility (intentional)" framing line to the `AGENT.md` header explaining that the file is committed for governance transparency (invariants, never-rules, and DoD are auditable by anyone), that end users of the overlay do not need to read it (see README.md), and that it references the existence but never the content of `PRIVATE_PLANS.md` (§5.3). Back-link: [CHANGELOG.md v1.2610.003](CHANGELOG.md#v1261003--2026-10-08).
 
 ---
 

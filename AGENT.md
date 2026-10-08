@@ -1,9 +1,10 @@
 # AGENT.md — Bubo Controller · Senior PM Operating Manual
 
-> **Version:** v1.2610.002
+> **Version:** v1.2610.003
 > **Scope:** This document is the binding operating manual for any AI agent (and any human acting in an autonomous PM capacity) working on the **Bubo Controller** project under the **Senior Project Manager** role.
 > **Canonical language:** English (matches `README.md`). User-facing communication is in **Portuguese (BR)** — conversation excerpts quoted in `CHANGELOG.md` are preserved verbatim in their original language.
 > **Authority:** Once this document is accepted by the agent, it **overrides** any generic agent defaults that conflict with it. The agent adopts the scope of this document as its behavior guide.
+> **Public visibility (intentional):** This file is committed to the public repository. It is the operating manual for the AI agent that serves as Senior Project Manager on Bubo Controller, kept public for **governance transparency** — the project's invariants (§6), never-rules (§12), and Definition-of-Done (§7) are auditable by anyone, and contributors opening a PR know exactly what review bar applies. End users of the overlay (streamers using it in OBS) do **not** need to read this file — see [README.md](README.md) instead. Maintainer-internal plans and monetization details live in `PRIVATE_PLANS.md`, which is gitignored and never committed; `AGENT.md` references its **existence** but never its **content** (§5.3). The `v1.YYMM.XXX` version in §0 and §14 makes this document's own evolution auditable.
 
 ---
 
@@ -590,6 +591,7 @@ Decision categories:
 | --- | --- | --- |
 | v1.2610.001 | 2026-10-08 | Initial publication. Established Senior PM operating manual, versioning policy (v1.YYMM.XXX), documentation charter (incl. conversation excerpt requirement), 8 architectural invariants, 12 Never-rules, DoD checklist with mandatory Agent Browser verification, risk management framework. Synced local Track C version to the remote repo. |
 | v1.2610.002 | 2026-10-08 | Version bump only. No rule changes (documentation-only Sprint for the project: Track C doc cleanup in `masks/README.md`, `DESIGN_GUIDE.md`, `docs/AUDIT.md`, `docs/AUDIT_PLAN.md`; `README.pt.md` alignment). §9.4 updated to record that the v1.2610.001 doc-drift was resolved this Sprint. |
+| v1.2610.003 | 2026-10-08 | Added the "Public visibility (intentional)" framing line to the §0 header. Resolves the maintainer's open question from v1.2610.002: `AGENT.md` stays public in the repo (Opção A). No rule changes — only the header framing. The framing clarifies that the file is public for governance transparency, that end users of the overlay do not need to read it (see README.md), and that it references the existence but never the content of `PRIVATE_PLANS.md` (§5.3). |
 
 ---
 

@@ -11,6 +11,40 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Conversation
 
 ---
 
+## [v1.2610.003] — 2026-10-08
+
+### Conversation excerpt (PT-BR, verbatim)
+
+> Siga com a sua recomendação de Opção A.
+
+### Added
+- **`AGENT.md` header framing** — added a "Public visibility (intentional)" line to the §0 header block, immediately after the existing Version/Scope/Canonical-language/Authority lines. The framing clarifies three points: (1) the file is committed to the public repo intentionally, for **governance transparency** — the project's invariants (§6), never-rules (§12), and Definition-of-Done (§7) are auditable by anyone, and contributors opening a PR know exactly what review bar applies; (2) end users of the overlay (streamers using it in OBS) do **not** need to read this file — see `README.md` instead; (3) it references the **existence** but never the **content** of `PRIVATE_PLANS.md` (§5.3). The framing also notes that the `v1.YYMM.XXX` version in §0 and §14 makes this document's own evolution auditable.
+
+### Changed
+- `AGENT.md` §0 header version bumped `v1.2610.002` → `v1.2610.003`.
+- `AGENT.md` §14 Change History: added a `v1.2610.003` row documenting the framing addition and the decision rationale (no rule changes — only header framing).
+- `VERSION`: `v1.2610.002` → `v1.2610.003`.
+- `README.md` version badge + Version line: `v1.2610.002` → `v1.2610.003`.
+- `README.pt.md` version badge + Versão line: `v1.2610.002` → `v1.2610.003`.
+- `ROADMAP.md` version line: `v1.2610.002 (Sprint 002)` → `v1.2610.003 (Sprint 003)`.
+- `ROADMAP.md` "Decisions from maintainer chat": added a `v1.2610.003` bullet recording the final decision (Opção A — `AGENT.md` stays public, framing line added) and back-linking to this CHANGELOG entry.
+
+### Audit
+- No new architectural decision entries — this Sprint resolved a **governance** question, not an architectural one. The decision (Opção A) was made by the maintainer per `AGENT.md` §1.2 (governance changes require maintainer confirmation); the agent recommended Opção A in the v1.2610.002 Relatório, and the maintainer confirmed with "Siga com a sua recomendação de Opção A."
+
+### Verification
+- Documentation-only Sprint (no `index.html` change) — the OBS test matrix (AGENT.md §7.2) and Agent Browser end-to-end verification (AGENT.md §7.3) were not required.
+- 4 canonical version locations verified consistent at `v1.2610.003`: `VERSION` file, `README.md` badge, `README.pt.md` badge, `AGENT.md` §0 header. `ROADMAP.md` version line also updated.
+- `AGENT.md` framing line verified to (a) not leak any `PRIVATE_PLANS.md` content, (b) cross-reference §5.3 (which protects `PRIVATE_PLANS.md`), and (c) not contradict any existing rule in the document.
+
+### ⚠️ Compliance
+- None. All 15 Never-Rules (AGENT.md §12) verified intact. `PRIVATE_PLANS.md` confirmed gitignored and not staged. No secrets in committed files.
+
+### Sprint footer
+Sprint: v1.2610.003
+
+---
+
 ## [v1.2610.002] — 2026-10-08
 
 ### Conversation excerpt (PT-BR, verbatim)
