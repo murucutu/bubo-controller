@@ -5,9 +5,9 @@
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](LICENSE)
 [![Made for OBS](https://img.shields.io/badge/made%20for-OBS-9146FF.svg)](https://obsproject.com/)
 [![Language: PT-BR](https://img.shields.io/badge/lang-EN%20%7C%20PT--BR-success.svg)](#languages)
-![Version](https://img.shields.io/badge/version-v1.2610.003-9146FF.svg)
+![Version](https://img.shields.io/badge/version-v1.2610.004-9146FF.svg)
 
-**Version:** `v1.2610.003` · **Scheme:** `v1.YYMM.XXX` (v1 = published · YYMM = build month · XXX = sprint number, resets monthly) — see [CHANGELOG.md](CHANGELOG.md).
+**Version:** `v1.2610.004` · **Scheme:** `v1.YYMM.XXX` (v1 = published · YYMM = build month · XXX = sprint number, resets monthly) — see [CHANGELOG.md](CHANGELOG.md).
 
 **Languages:** English · [Português (BR)](README.pt.md)
 
@@ -47,10 +47,11 @@ The project is dedicated to the **public domain** ([The Unlicense](LICENSE)) —
 1. **Download & unzip** the project (or `git clone https://github.com/murucutu/bubo-controller.git`).
 2. In OBS Studio, add a **Browser** source.
 3. Check **Local file** and select `index.html`.
-4. Set **Width** and **Height**. For full-bleed (no transparent padding), use any ~2.37:1 size:
-   - `768 × 324` (base, scale 1×)
-   - `1920 × 810` (2.5× — HD full-bleed horizontal)
-   - `3840 × 1620` (5× — 4K full-bleed horizontal)
+4. Set **Width** and **Height**. For full-bleed (no transparent padding), use any ~2.96:1 size (v1.2610.004 Xbox canvas is 640×216):
+   - `640 × 216` (base, scale 1×)
+   - `1280 × 432` (2× — HD horizontal full-bleed)
+   - `1920 × 648` (3× — Full HD horizontal full-bleed)
+   - `3840 × 1296` (6× — 4K horizontal full-bleed)
    - Or any 16:9 (`1920×1080`, `3840×2160`) — overlay fills width, with vertical padding.
 5. Plug in a gamepad. Press any button. The overlay reacts in real time.
 
@@ -78,8 +79,11 @@ All configuration lives in `:root` at the top of the `<style>` block in `index.h
 
 ```css
 :root {
-    --accent: #FFFFFF;        /* global color (white on black, or swap for dark on white) */
-    --color-bg: #000000;      /* background tint (used for label text contrast) */
+    /* v1.2610.004 default palette */
+    --nimbus: #F2F2F2;        /* outline color (buttons, L3/R3 knob) — light gray */
+    --umbral: #0D0D0D;        /* fill color (background, button fill) — near-black */
+    --accent: var(--nimbus);  /* alias (outlines) */
+    --color-bg: var(--umbral);/* alias (fills + label text contrast) */
 
     /* ABXY colors (set by ?color= or manually) */
     --color-a: var(--accent);
@@ -87,10 +91,16 @@ All configuration lives in `:root` at the top of the `<style>` block in `index.h
     --color-x: var(--accent);
     --color-y: var(--accent);
 
-    /* Opacity system */
-    --bg-opacity: 0.4;              /* background rect fill opacity */
-    --button-opacity: 0.4;          /* unpressed button fill opacity */
-    --button-pressed-opacity: 1;    /* pressed button fill opacity */
+    /* L3/R3 knob = Nimbus even under ?color=xbox (do not follow ABXY scheme) */
+    --color-l3: var(--nimbus);
+    --color-r3: var(--nimbus);
+
+    /* Opacity system (v1.2610.004) */
+    --bg-opacity: 0.2;              /* background fill opacity (20%) */
+    --button-fill-opacity: 0.95;    /* unpressed button fill opacity (95%) */
+    --button-pressed-opacity: 0.95; /* pressed button fill opacity (95%) */
+    --knob-fill-opacity: 0.5;       /* L3/R3 knob base (50% Nimbus) */
+    --knob-pressed-opacity: 0.95;  /* L3/R3 knob pressed (95% Nimbus) */
 
     /* Stick trail (Arcade only) */
     --stick-trail-length: 30;       /* number of trail frames */

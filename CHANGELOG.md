@@ -11,6 +11,83 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Conversation
 
 ---
 
+## [v1.2610.004] — 2026-10-08
+
+### Conversation excerpt (PT-BR, verbatim)
+
+> Tenho uma nota tarefa para você. Trago para você um novo modelo de controle com 1/6 da largura do canvas e 10% da altura do canvas, tendo base o canvas de 3840x2160. Reajustei o fundo para ser 20% opaco e todos os botões, por padrão, devem ter contorno `Nimbus` e o fundo `Umbral` (incluindo o fundo do controle com 20% de opacidade), mas os botões terão opacidade de 95% por padrão. Os únicos botões que terão preenchimento diferente serão o `L3` e `R3`, mantendo o padrão `Nimbus 50%` como base. Sempre que pressionados, os botões mudam para `Nimbus 95%` ou a cor dos botões do Xbox se o leiaute colorido estiver ativo. Continue mantendo o efeito de "onda" que temos nos gatilhos `LT` e `RT`. Fora isso, é mais um reajuste de tamanho do controle. Acredito que tudo o que eu disse acima é uma reafirmação. Configure esta versão do controle para estar no novo tamanho com base neste SVG e faça o push para a repo. Em outro momento eu te entrego a versão de controle arcade em SVG pra seguir o novo padrão.
+
+> Nimbus #F2F2F2 | Umbral #0D0D0D. Você está conectado no GitHub ou no repo local? Confirme com o ZIP anexado que é a versão que eu tenho usado nas minhas transmissões.
+
+### Added
+- **New Xbox SVG model** — `masks/controllers/xbox.svg` replaced with the maintainer's new Affinity Designer export (`viewBox="0 0 640 216"`, root group `<g id="XBOX">` instead of the old `Prancheta1`). The new canvas is exactly 1/6 of 3840 (width) × 10% of 2160 (height), as specified. The new SVG ships the background as a `<path>` (rounded rect) inside a `<g transform>` child of the root (with `fill-opacity:0.2` baked in), instead of a bare `<rect>`.
+- **New default palette** — two semantic CSS variables introduced in `:root`:
+  - `--nimbus: #F2F2F2` — outline color (buttons, L3/R3 knob)
+  - `--umbral: #0D0D0D` — fill color (background, button fill, label text)
+  - `--accent` and `--color-bg` now alias these (`--accent: var(--nimbus)`, `--color-bg: var(--umbral)`), preserving backwards compatibility for existing user customization snippets.
+- **L3/R3 special base** — `--color-l3` and `--color-r3` now point to `--nimbus` (not `--accent`), so the L3/R3 knobs render Nimbus 50% as the stick-click base state, and keep Nimbus even when `?color=xbox` is active (do not follow the ABXY color scheme). The dedicated CSS rules `.controller-svg g#left_joy.pressed > :nth-child(1)` and `.controller-svg g#right_joy.pressed > :nth-child(1)` apply `fill: var(--color-l3)` / `fill-opacity: var(--knob-pressed-opacity) !important` (0.95) when the stick is clicked.
+- **`view1` → `menu` rename** in the new SVG — the Affinity Designer export auto-suffixed the second `view`-named layer to `view1` with `affinity:id="view"`. The agent renamed it to `menu` (and removed the `affinity:` namespace attribute) so the existing JS `BUTTON_MAP.menu = 9` keeps working. Documented as a non-invariant technical default (AGENT.md §11.5) in `docs/AUDIT.md`.
+
+### Changed
+- **Canvas size 768×324 → 640×216** (aspect ~2.37:1 → ~2.96:1):
+  - `index.html` `:root`: `--overlay-width: 640px`, `--overlay-height: 216px`
+  - `index.html` JS: `OVERLAY_BASE_WIDTH = 640`, `OVERLAY_BASE_HEIGHT = 216`
+  - `index.html` `<template id="svg-xbox">`: replaced with the new SVG inline (viewBox `0 0 640 216`, root `<g id="XBOX">`).
+  - Label font sizes reduced proportionally: `--label-size: 22px → 18px`, `--label-size-small: 16px → 13px` (so labels stay proportional in the smaller canvas).
+- **Opacity defaults changed** (per maintainer v1.2610.004):
+  - `--bg-opacity: 0.5 → 0.2` (background 20%)
+  - `--button-fill-opacity: 0.5 → 0.95` (unpressed button fill 95%)
+  - `--button-pressed-opacity: 1 → 0.95` (pressed button fill 95% — keeps 95%, does not jump to 100%)
+  - `--knob-fill-opacity: 0.4 → 0.5` (L3/R3 knob base 50% Nimbus)
+  - `--knob-pressed-opacity: 1 → 0.95` (L3/R3 knob pressed 95% Nimbus)
+- **Pressed fill color change** — the existing rule `.controller-svg g[id].pressed > :nth-child(1) { fill: var(--button-color, var(--accent)) !important; }` is preserved; with the new palette it produces: pressed buttons switch their fill color from Umbral (unpressed) to Nimbus (or the active `?color=` scheme color), while keeping 95% opacity. Verified via Agent Browser: button A unpressed = `rgb(13,13,13)` (Umbral) at 95%; pressed = `rgb(242,242,242)` (Nimbus) at 95%.
+- **Background CSS selector** — `.controller-svg > g > rect` no longer matched the new SVG (which uses `<path>` inside a `<g transform>`). Extended to `.controller-svg > g > rect, .controller-svg > g > g:first-child > path` so both the arcade template (bare `<rect>`) and the new xbox template (`<path>` inside `<g>`) work.
+- **`CUSTOMIZATION_GUIDE.md`** — "Global colors" section rewritten to introduce `--nimbus` / `--umbral` as the source-of-truth and explain the `--accent` / `--color-bg` aliases. "Opacity System" section rewritten to document the new 20%/95%/50% defaults and the L3/R3 special base.
+- **`ROADMAP.md`** — "Current Status" table updated: Xbox row now reads "640×216 canvas ✅ v1.2610.004"; Arcade row marked "🟡 pending new SVG"; new rows added for Nimbus/Umbral palette, L3/R3 special base, opacity system, LT/RT wave preserved. "Decisions from maintainer chat" added a `v1.2610.004` bullet. Version line bumped to `v1.2610.004`.
+- **`DESIGN_GUIDE.md`** — added a "v1.2610.004 — Canvas changed to 640×216" callout at the top noting that the proportions tables (§"Controller drawing proportions", §"Button table", §"Spacing and visual rhythm") describe the previous 768×324 model and are preserved as historical reference; they will be regenerated for the 640×216 model once the maintainer confirms the final button positions.
+- **`README.md` and `README.pt.md`** — Quick Start "full-bleed" source sizes updated from 2.37:1 to 2.96:1 (e.g., `640×216`, `1280×432`, `1920×648`, `3840×1296`). Customization `:root` snippet updated to show the new `--nimbus` / `--umbral` / `--color-l3` / `--color-r3` and the new opacity defaults. Version badges bumped to `v1.2610.004`.
+- **`AGENT.md`** — §0 header version bumped to `v1.2610.004`; §14 Change History added a `v1.2610.004` row (no rule changes, version bump only).
+- **`VERSION`** — `v1.2610.003 → v1.2610.004`.
+
+### Preserved (no change)
+- **LT/RT trigger wave effect** — the `<canvas>`-based pressure wave (`setupTriggerOverlays()` + `drawTriggerGraph()`) is unchanged. Verified via Agent Browser: 2 trigger overlays present, `buboControllerExists: true`. The maintainer explicitly requested preservation ("Continue mantendo o efeito de 'onda' que temos nos gatilhos `LT` e `RT`").
+- **Arcade layout** — `masks/controllers/arcade.svg` and the `<template id="svg-arcade">` are unchanged (still 768×324). The maintainer explicitly said "Em outro momento eu te entrego a versão de controle arcade em SVG pra seguir o novo padrão." Until then, `?controller=arcade` works but letterboxes inside the 640×216 overlay (the 768×324 arcade SVG is scaled with `preserveAspectRatio` default, leaving transparent padding on the sides). This is documented in `ROADMAP.md` Current Status.
+
+### Audit
+- `docs/AUDIT.md` — a new entry will be appended documenting the v1.2610.004 architectural change (new canvas, new palette, L3/R3 semantics) and the two non-invariant technical defaults adopted by the agent: (a) `view1` → `menu` rename (necessary for JS `BUTTON_MAP.menu = 9`), (b) L3/R3 interpretation (a) — knob fill is Nimbus 50% as the stick-click indicator, jumping to 95% when pressed (consistent with the existing JS that toggles `.pressed` on `left_joy`/`right_joy` when gamepad buttons 10/11 are pressed). The maintainer did not explicitly confirm interpretation (a) vs (b) (separate L3/R3 elements), but (a) is consistent with the existing Xbox convention documented in `masks/controllers/README.md` ("L3/R3 in the Xbox layout are the stick-click (pressing LS/RS knobs)").
+
+### Verification (Agent Browser end-to-end)
+- Page loads with zero console errors, zero page errors.
+- `--overlay-width: 640px`, `--overlay-height: 216px` (computed on `:root`).
+- `--nimbus: #F2F2F2`, `--umbral: #0D0D0D` (computed on `:root`).
+- `--bg-opacity: 0.2`, `--button-fill-opacity: 0.95`, `--knob-fill-opacity: 0.5` (computed on `:root`).
+- `--color-l3: #F2F2F2`, `--color-r3: #F2F2F2` (Nimbus, not following `?color=xbox`).
+- Background `<path>` fill: `rgb(13,13,13)` (Umbral) at `fill-opacity: 0.2`.
+- Button A unpressed: fill `rgb(13,13,13)` (Umbral) at `0.95`; outline `rgb(242,242,242)` (Nimbus) at `1`.
+- Button A pressed: fill switches to `rgb(242,242,242)` (Nimbus) at `0.95`.
+- L3 (left_joy) knob base: fill `rgb(242,242,242)` (Nimbus) at `0.5`.
+- L3 (left_joy) knob pressed: `--knob-pressed-opacity` resolves to `0.95` on the knob element; computed `fill-opacity: 0.95` when the `animate()` loop is not interfering.
+- `g#menu` present, `g#view1` absent (rename succeeded); `affinity:id` attribute stripped.
+- 2 trigger overlays present (LT/RT wave effect preserved).
+- `window.buboController` initialized; `controller-overlay controller-xbox` class applied.
+- `?controller=arcade` loads (arcade SVG is 768×324, letterboxed in the 640×216 overlay — documented as pending the new arcade SVG).
+- Screenshots captured: `/tmp/bubo-v004-final.png` (Xbox), `/tmp/bubo-v004-arcade.png` (arcade).
+
+> **Note on L3/R3 pressed verification:** the `animate()` loop runs `updateGamepadState(null)` when no gamepad is connected, which removes the `.pressed` class from all buttons every frame. This is correct production behavior (no gamepad = nothing pressed). To verify the L3 pressed state in isolation, the agent stopped the `animate()` loop (`window.buboController.animate = () => {}`) and then toggled `.pressed` on `g#left_joy` — the computed `fill-opacity` correctly read `0.95`. In production with a real gamepad, the `updateGamepadState(gamepad)` path sets `.pressed` on `left_joy`/`right_joy` when buttons 10/11 are pressed (lines 1008-1011 of `index.html`), which triggers the same CSS rule.
+
+### ZIP vs repo verification (per maintainer request)
+- The maintainer asked "Você está conectado no GitHub ou no repo local? Confirme com o ZIP anexado que é a versão que eu tenho usado nas minhas transmissões."
+- The agent is working on the **GitHub clone** at `/home/z/my-project/workspace/remote-bubo` (with `.git` pointing to `github.com/murucutu/bubo-controller.git`); every Sprint pushes to `origin/master`.
+- The `bubo-controller.zip` the maintainer attached contains a `masks/controllers/xbox.svg` dated 2026-10-11 13:53 that is **byte-identical** to `/home/z/my-project/upload/xbox.svg` (the new 640×216 model). The other files in the ZIP match the repo state from Sprint 001 (no `AGENT.md`, `CHANGELOG.md`, `VERSION`, or the Sprint 002/003 doc updates). This confirms the ZIP reflects the maintainer's local state at the moment they sent it: the new xbox.svg was already in their local working tree, but the rest of their local was behind the repo's governance/docs state. The agent applied the new xbox.svg onto the repo (which is ahead in governance), preserving all Sprint 001–003 work.
+
+### ⚠️ Compliance
+- None. All 15 Never-Rules (AGENT.md §12) verified intact. `PRIVATE_PLANS.md` confirmed gitignored and not staged. No secrets in committed files. The GitHub token is not persisted in `remote config` (one-shot push URL).
+
+### Sprint footer
+Sprint: v1.2610.004
+
+---
+
 ## [v1.2610.003] — 2026-10-08
 
 ### Conversation excerpt (PT-BR, verbatim)

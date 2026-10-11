@@ -327,3 +327,72 @@ Arquivos finais:
 - `Select-String` confirmou que `canvas` aparece apenas como `.trigger-graph` intencional dos gatilhos.
 - `Test-Path .\masks\bg_dark.png` confirmou que o asset exigido pelo background existe.
 - Checagem de sintaxe JS via `node --check` não foi executada porque Node.js não está instalado no ambiente.
+
+---
+
+## v1.2610.004 — Novo modelo Xbox 640×216, paleta Nimbus/Umbral, L3/R3 especial
+
+### Contexto
+
+O mantenedor entregou um novo `masks/controllers/xbox.svg` exportado do Affinity Designer, com `viewBox="0 0 640 216"` (1/6 da largura × 10% da altura de uma base 3840×2160). Junto ao novo SVG, pediu:
+- Fundo a 20% de opacidade.
+- Contorno `Nimbus` (#F2F2F2) e fundo `Umbral` (#0D0D0D) para todos os botões.
+- Botões com 95% de opacidade por padrão.
+- L3 e R3 com `Nimbus 50%` como base.
+- Pressionados: botões mudam para `Nimbus 95%` (ou a cor do esquema Xbox se `?color=xbox` ativo).
+- Preservar a onda dos gatilhos LT/RT.
+- Arcade: entregará novo SVG em Sprint futura.
+
+### Decisões adotadas pelo agente (não-invariantes, per AGENT.md §11.5)
+
+1. **`view1` → `menu` rename**: o Affinity Designer auto-sufixou o segundo layer chamado `view` para `view1` com `affinity:id="view"`. O agente renomeou para `menu` e removeu o atributo `affinity:id` para que o JS `BUTTON_MAP.menu = 9` continue mapeando o Gamepad button 9. Sem essa renomeação, o botão Menu não reagiria. Documentado como default técnico não-invariante.
+
+2. **L3/R3 interpretação (a)**: o mantenedor não explicitou se L3/R3 seriam (a) knob do analógico com Nimbus 50% base (stick-click indicator) ou (b) elementos SVG separados. O agente adotou (a) porque:
+   - É consistente com a convenção Xbox documentada em `masks/controllers/README.md`: "L3/R3 in the Xbox layout are the stick-click (pressing LS/RS knobs)".
+   - O JS existente (linhas 1008-1011 do `index.html`) já faz `left_joy.pressed` / `right_joy.pressed` quando os botões 10/11 são pressionados, confirmando que L3/R3 = stick-click.
+   - O novo SVG não adiciona elementos `g#l3` / `g#r3` separados (apenas `left_joy` / `right_joy`), então (b) exigiria redesign do SVG.
+   A implementação: `--color-l3` e `--color-r3` apontam para `--nimbus` (não `--accent`), e regras CSS dedicadas `.controller-svg g#left_joy.pressed > :nth-child(1)` aplicam `fill: var(--color-l3)` a `--knob-pressed-opacity` (0.95) quando pressionado. L3/R3 mantêm Nimbus mesmo sob `?color=xbox` (não seguem o esquema ABXY).
+
+### Mudanças arquiteturais
+
+- **Canvas**: 768×324 → 640×216 (aspect ~2.37:1 → ~2.96:1).
+  - `:root`: `--overlay-width: 640px`, `--overlay-height: 216px`.
+  - JS: `OVERLAY_BASE_WIDTH = 640`, `OVERLAY_BASE_HEIGHT = 216`.
+  - `<template id="svg-xbox">`: substituído pelo novo SVG inline.
+  - Root group: `Prancheta1` → `XBOX`.
+  - Background: `<rect>` direto → `<path>` (rounded rect) dentro de `<g transform>`, com `fill-opacity:0.2` embutido no SVG (removido pelo `processSvg()`, reaplicado via CSS).
+
+- **Paleta semântica**: introduzidas `--nimbus` (#F2F2F2) e `--umbral` (#0D0D0D) como fonte da verdade; `--accent` e `--color-bg` agora são aliases (`var(--nimbus)` e `var(--umbral)`). Preserva backwards-compat com snippets de customização existentes.
+
+- **Opacidades**:
+  - `--bg-opacity: 0.5 → 0.2` (fundo 20%).
+  - `--button-fill-opacity: 0.5 → 0.95` (botão 95%).
+  - `--button-pressed-opacity: 1 → 0.95` (pressionado mantém 95%, não salta para 100%).
+  - `--knob-fill-opacity: 0.4 → 0.5` (L3/R3 base 50% Nimbus).
+  - `--knob-pressed-opacity: 1 → 0.95` (L3/R3 pressionado 95% Nimbus).
+
+- **Seletor CSS de background**: `.controller-svg > g > rect` estendido para `.controller-svg > g > rect, .controller-svg > g > g:first-child > path` para casar com ambos os templates (arcade ainda usa `<rect>`; xbox agora usa `<path>` dentro de `<g>`).
+
+- **Labels**: `--label-size: 22px → 18px`, `--label-size-small: 16px → 13px` (proporcionais ao canvas menor).
+
+### Preservado (sem mudança)
+
+- **Onda LT/RT**: `setupTriggerOverlays()` + `drawTriggerGraph()` (canvas) — sem mudança. Verificado: 2 trigger overlays presentes via Agent Browser.
+- **Arcade layout**: `arcade.svg` e `<template id="svg-arcade">` — sem mudança (ainda 768×324). Letterbox dentro do overlay 640×216 até o mantenedor entregar o novo SVG arcade.
+
+### Verificação Agent Browser
+
+- Zero erros de console, zero erros de página.
+- `--overlay-width: 640px`, `--overlay-height: 216px` (computed).
+- Background fill: `rgb(13,13,13)` (Umbral) a 20%.
+- Botão A base: fill `rgb(13,13,13)` (Umbral) a 95%; outline `rgb(242,242,242)` (Nimbus) a 100%.
+- Botão A pressed: fill muda para `rgb(242,242,242)` (Nimbus) a 95%.
+- L3 (left_joy) base: fill `rgb(242,242,242)` (Nimbus) a 50%.
+- L3 (left_joy) pressed: `--knob-pressed-opacity` resolve para 0.95 no knob; computed `fill-opacity: 0.95` (verificado com loop `animate()` parado; em produção, o `updateGamepadState(gamepad)` ativa `.pressed` em `left_joy`/`right_joy` quando botões 10/11 são pressionados).
+- `g#menu` presente, `g#view1` ausente (renomeação ok).
+- 2 trigger overlays (onda LT/RT preservada).
+- `window.buboController` inicializado.
+
+### Decisões pendentes
+
+- Nenhuma. O mantenedor confirmou as cores (`Nimbus #F2F2F2 | Umbral #0D0D0D`) e o SVG. As duas decisões técnicas (renomeação `view1`→`menu`, interpretação L3/R3 (a)) foram adotadas pelo agente como defaults não-invariantes e documentadas aqui. Se o mantenedor preferir L3/R3 como elementos separados (interpretação (b)), uma Sprint futura deve adicionar `g#l3` / `g#r3` ao SVG e ajustar o JS.

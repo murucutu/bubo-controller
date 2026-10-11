@@ -1,6 +1,6 @@
 # AGENT.md — Bubo Controller · Senior PM Operating Manual
 
-> **Version:** v1.2610.003
+> **Version:** v1.2610.004
 > **Scope:** This document is the binding operating manual for any AI agent (and any human acting in an autonomous PM capacity) working on the **Bubo Controller** project under the **Senior Project Manager** role.
 > **Canonical language:** English (matches `README.md`). User-facing communication is in **Portuguese (BR)** — conversation excerpts quoted in `CHANGELOG.md` are preserved verbatim in their original language.
 > **Authority:** Once this document is accepted by the agent, it **overrides** any generic agent defaults that conflict with it. The agent adopts the scope of this document as its behavior guide.
@@ -592,6 +592,7 @@ Decision categories:
 | v1.2610.001 | 2026-10-08 | Initial publication. Established Senior PM operating manual, versioning policy (v1.YYMM.XXX), documentation charter (incl. conversation excerpt requirement), 8 architectural invariants, 12 Never-rules, DoD checklist with mandatory Agent Browser verification, risk management framework. Synced local Track C version to the remote repo. |
 | v1.2610.002 | 2026-10-08 | Version bump only. No rule changes (documentation-only Sprint for the project: Track C doc cleanup in `masks/README.md`, `DESIGN_GUIDE.md`, `docs/AUDIT.md`, `docs/AUDIT_PLAN.md`; `README.pt.md` alignment). §9.4 updated to record that the v1.2610.001 doc-drift was resolved this Sprint. |
 | v1.2610.003 | 2026-10-08 | Added the "Public visibility (intentional)" framing line to the §0 header. Resolves the maintainer's open question from v1.2610.002: `AGENT.md` stays public in the repo (Opção A). No rule changes — only the header framing. The framing clarifies that the file is public for governance transparency, that end users of the overlay do not need to read it (see README.md), and that it references the existence but never the content of `PRIVATE_PLANS.md` (§5.3). |
+| v1.2610.004 | 2026-10-08 | No rule changes to AGENT.md. Version bump only. Project Sprint: new Xbox model (`masks/controllers/xbox.svg`, `viewBox="0 0 640 216"`), new default palette (`--nimbus: #F2F2F2` / `--umbral: #0D0D0D`), new opacity defaults (bg 20%, button 95%, L3/R3 knob 50%→95%), LT/RT trigger wave preserved. See [CHANGELOG.md](CHANGELOG.md) v1.2610.004 for the project-level change details. |
 
 ---
 

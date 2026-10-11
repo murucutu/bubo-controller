@@ -2,7 +2,7 @@
 
 This document lists planned variants, future improvements, and how to contribute new variants. There's no commitment to timelines — it's a statement of intent and a panel of opportunities for anyone who wants to pick them up.
 
-**Versioning:** `v1.YYMM.XXX` (see [AGENT.md](AGENT.md#3-versioning-policy-v1yymmxxx) and [CHANGELOG.md](CHANGELOG.md)). Current build: `v1.2610.003` (October 2026, Sprint 003).
+**Versioning:** `v1.YYMM.XXX` (see [AGENT.md](AGENT.md#3-versioning-policy-v1yymmxxx) and [CHANGELOG.md](CHANGELOG.md)). Current build: `v1.2610.004` (October 2026, Sprint 004).
 
 ---
 
@@ -20,20 +20,22 @@ This document lists planned variants, future improvements, and how to contribute
 
 | Component                          | Status | Notes                                                        |
 | ---------------------------------- | ------ | ------------------------------------------------------------ |
-| Xbox Series layout                 | ✅      | Implemented in `index.html` (Track C, SVG inline)            |
-| Arcade fightstick layout           | ✅      | Implemented in `index.html` via `?controller=arcade` (Track C) — `masks/controllers/arcade.svg` |
-| Overlay at controller's natural aspect (768×324, ~2.37:1) | ✅ | No transparent padding; CSS-only background (Track C, no PNG) |
+| Xbox Series layout (640×216 canvas) | ✅ v1.2610.004 | New model: 1/6 width × 10% height of 3840×2160 base. `masks/controllers/xbox.svg` (Affinity-exported, `viewBox="0 0 640 216"`). Inlined as `<template id="svg-xbox">`. |
+| Arcade fightstick layout           | 🟡 pending new SVG | Current `arcade.svg` still uses 768×324 (legacy). Maintainer will deliver the new 640×216 arcade SVG in a future Sprint. Until then `?controller=arcade` works but letterboxes inside the 640×216 overlay. |
+| Overlay canvas 640×216 (~2.96:1)   | ✅ v1.2610.004 | `--overlay-width: 640px`, `--overlay-height: 216px`. OBS source recommendations updated. |
+| Nimbus/Umbral default palette       | ✅ v1.2610.004 | `--nimbus: #F2F2F2` (outlines), `--umbral: #0D0D0D` (fills). `--accent` and `--color-bg` now alias these. |
 | Per-button colors                   | ✅      | `--color-a`, `--color-b`, …, `--color-menu`                  |
+| L3/R3 special base (Nimbus 50%)     | ✅ v1.2610.004 | Knob fill is `--nimbus` at 50% opacity as the stick-click indicator; jumps to 95% when L3/R3 pressed. L3/R3 keep Nimbus even under `?color=xbox` (do not follow ABXY scheme). |
+| Opacity system (bg 20% / button 95%) | ✅ v1.2610.004 | `--bg-opacity: 0.2`, `--button-fill-opacity: 0.95`, `--button-pressed-opacity: 0.95`. Pressed fill color switches from Umbral to Nimbus (or active `?color=` scheme). |
+| LT/RT trigger wave effect (Xbox)    | ✅ preserved | The `<canvas>`-based pressure wave is preserved in v1.2610.004 (no change to `setupTriggerOverlays()` / `drawTriggerGraph()`). |
 | Auto-scale                          | ✅      | JS reads viewport, applies `transform: scale(var(--scale))` |
 | Manual scale override (URL)         | ✅      | `?scale=2.0` in URL                                          |
 | Fit modes (URL)                     | ✅      | `?fit=contain` (default) \| `?fit=cover` (may clip LT/RT)   |
-| Black-and-white default theme       | ✅      | Default `--accent: #FFFFFF` over CSS background              |
 | Debug mode                          | ✅      | Double-click on the overlay                                   |
 | Text labels (Phase 1)               | ✅      | `--label-*` in `:root`, `::after` per button, pressed state with inverted color |
 | Icon sets (Phase 2)                 | ✅      | `?icons=xbox\|playstation\|nintendo\|none` in URL            |
 | Arcade stick ghost-glow trail        | ✅      | `--stick-trail-*` variables, 1/3 knob size, analog + D-pad capture |
 | ABXY color schemes via URL           | ✅      | `?color=xbox\|playstation`                                   |
-| Opacity layering system              | ✅      | 40% bg + 40% buttons ≈ 64% combined; 100% on press          |
 | Sprite pack guide (Phase 5 docs)    | ✅ docs | [LABEL_PACKS_GUIDE.md](LABEL_PACKS_GUIDE.md) + `masks/labels/sprite_example.svg` |
 | Sprite pack runtime (Phase 5 impl) | 🟡 planned | Model ready, `<use>` HTML integration pending              |
 | Inline SVG icons for View/Menu (Phase 3) | 🟡 planned | Inline SVG in HTML, replacing empty `--label-view`           |
@@ -86,6 +88,7 @@ This section records roadmap-level decisions originating from maintainer chat co
 - **v1.2610.001** — Adopted the `v1.YYMM.XXX` versioning scheme (v1 = published, YYMM = build month, XXX = sprint number, resets monthly). Established the Senior PM operating manual ([AGENT.md](AGENT.md)) as the binding behavior guide for the agent. Synced the maintainer's local Track C version to the remote repo (the remote's "Initial commit" was the older PNG-based version). Back-link: [CHANGELOG.md v1.2610.001](CHANGELOG.md#v1261001--2026-10-08).
 - **v1.2610.002** — Resolved the doc/code drift logged in v1.2610.001 (Track C doc cleanup in `masks/README.md`, `DESIGN_GUIDE.md`, `docs/AUDIT.md`, `docs/AUDIT_PLAN.md`; `README.pt.md` aligned with `README.md`). Maintainer raised an open question about whether `AGENT.md` should be gitignored and kept only in the chat environment; the agent analyzed trade-offs and presented a recommendation; the final decision is pending maintainer confirmation. Back-link: [CHANGELOG.md v1.2610.002](CHANGELOG.md#v1261002--2026-10-08).
 - **v1.2610.003** — **Decided:** `AGENT.md` stays public in the repo (Opção A — manter público + framing). The maintainer accepted the agent's recommendation. Added a "Public visibility (intentional)" framing line to the `AGENT.md` header explaining that the file is committed for governance transparency (invariants, never-rules, and DoD are auditable by anyone), that end users of the overlay do not need to read it (see README.md), and that it references the existence but never the content of `PRIVATE_PLANS.md` (§5.3). Back-link: [CHANGELOG.md v1.2610.003](CHANGELOG.md#v1261003--2026-10-08).
+- **v1.2610.004** — **New Xbox model + Nimbus/Umbral palette.** The maintainer delivered a new `masks/controllers/xbox.svg` (Affinity Designer export, `viewBox="0 0 640 216"` = 1/6 width × 10% height of a 3840×2160 base). Canvas changed from 768×324 to 640×216. New semantic colors: `--nimbus: #F2F2F2` (outlines, L3/R3 knob), `--umbral: #0D0D0D` (background, button fill). Opacity defaults changed: background 20%, button fill 95% (unpressed and pressed), L3/R3 knob 50% base → 95% pressed. Pressed buttons switch fill color from Umbral to Nimbus (or the active `?color=` scheme color) while keeping 95% opacity. The LT/RT trigger wave effect is preserved. The arcade layout is unchanged pending a new SVG from the maintainer. Back-link: [CHANGELOG.md v1.2610.004](CHANGELOG.md#v1261004--2026-10-08).
 
 ---
 

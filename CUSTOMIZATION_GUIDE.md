@@ -39,26 +39,32 @@ See [masks/controllers/README.md](masks/controllers/README.md) for how to create
 
 ### Global colors
 
-Two variables control the base theme:
+> **v1.2610.004 palette:** the project default changed from white-on-black to **Nimbus** (`#F2F2F2`) for outlines and **Umbral** (`#0D0D0D`) for fills. The two semantic variables `--nimbus` and `--umbral` are the source-of-truth; `--accent` and `--color-bg` now resolve to them. Background opacity is 20%, button fill opacity is 95%, L3/R3 knob base opacity is 50% (Nimbus) going to 95% when the stick is clicked.
+
+Two semantic variables control the base theme, with two legacy aliases for backwards compatibility:
 
 ```css
 :root {
-    --accent: #FFFFFF;     /* global color — used for all buttons and background */
-    --color-bg: #000000;   /* label text color (for contrast against buttons) */
+    --nimbus: #F2F2F2;     /* outline color (buttons, knobs) — light gray */
+    --umbral: #0D0D0D;     /* fill color (background, button fill) — near-black */
+    --accent: var(--nimbus);   /* alias — outlines (legacy variable name) */
+    --color-bg: var(--umbral); /* alias — fill + label text contrast */
 }
 ```
 
-- `--accent` is the default color applied to all buttons and the background rect.
-- `--color-bg` is used for label text fill, ensuring contrast against the button fill.
+- `--nimbus` (outlines) is the default color applied to all button outlines and to L3/R3 knob fills.
+- `--umbral` (fills) is used for the background rect, the unpressed button fill, and the label text color (for contrast against the Nimbus outline).
 
-To invert to a light theme (dark buttons on white background):
+To invert to a light theme (Umbral outlines on Nimbus background):
 
 ```css
 :root {
-    --accent: #000000;
-    --color-bg: #FFFFFF;
+    --nimbus: #0D0D0D;
+    --umbral: #FFFFFF;
 }
 ```
+
+(The aliases `--accent` and `--color-bg` follow automatically since they resolve to `--nimbus` and `--umbral`.)
 
 ### ABXY color schemes (`?color=`)
 
@@ -121,24 +127,27 @@ Each button has its own CSS variable, defaulting to `--accent`:
 
 ## Opacity System
 
+> **v1.2610.004 defaults:** background 20%, button fill 95%, L3/R3 knob 50% (base) → 95% (pressed). The pressed fill color also changes — from Umbral (unpressed fill) to Nimbus (or the active `?color=` scheme color) — so the pressed state is both a color change and an opacity change.
+
 The overlay uses a **layered opacity system** that creates visual depth:
 
 ```css
 :root {
-    --bg-opacity: 0.4;              /* background rect fill opacity */
-    --button-opacity: 0.4;          /* unpressed button fill opacity */
-    --button-pressed-opacity: 1;    /* pressed button fill opacity (100%) */
-    --boundary-opacity: 0.15;       /* analog stick boundary rings */
+    --bg-opacity: 0.2;              /* background fill opacity (v1.2610.004 default: 20%) */
+    --button-fill-opacity: 0.95;    /* unpressed button fill opacity (95%) */
+    --button-pressed-opacity: 0.95; /* pressed button fill opacity (95%) */
+    --knob-fill-opacity: 0.5;       /* L3/R3 knob base fill opacity (50% Nimbus) */
+    --knob-pressed-opacity: 0.95;   /* L3/R3 knob pressed fill opacity (95% Nimbus) */
 }
 ```
 
 ### How it works
 
-1. **Background rect** (768×324): filled with `--accent` at 40% opacity.
-2. **All buttons** (including analog stick knobs): filled with their color at 40% opacity when unpressed.
-3. **Where button overlaps background**: alpha blending produces ~64% opacity (1 − (1−0.4)×(1−0.4) = 0.64). This makes buttons appear denser than the background alone.
-4. **Pressed buttons**: fill jumps to 100% opacity — bright flash on press.
-5. **Boundary rings** (analog stick outer circles): at 15% opacity — subtle, doesn't compete with buttons.
+1. **Background** (640×216 canvas): filled with `--umbral` at 20% opacity (v1.2610.004).
+2. **All buttons** (LB/RB/LT/RT/ABXY/D-pad/View/Menu): the fill is `--umbral` at 95% opacity; the outline is `--nimbus` (or the active `?color=` scheme color) at 100%.
+3. **Pressed buttons**: the fill color switches from Umbral to the outline color (Nimbus by default, or the Xbox/PlayStation scheme color) at 95% opacity. This produces a visible "flash" on press while keeping the 95% opacity.
+4. **L3/R3 knobs** (analog stick knobs, Xbox only): the fill is `--nimbus` at 50% opacity as the base state (stick-click indicator); when L3/R3 is pressed, the fill opacity jumps to 95% (still Nimbus). L3/R3 keep Nimbus even when `?color=xbox` is active — they do not follow the ABXY color scheme.
+5. **Boundary rings** (`*_reach`): outline only, no fill — subtle, doesn't compete with buttons.
 
 ### Tuning the opacity
 
@@ -146,21 +155,21 @@ For a more subtle look (lighter overlay):
 
 ```css
 :root {
-    --bg-opacity: 0.25;
-    --button-opacity: 0.25;
+    --bg-opacity: 0.1;
+    --button-fill-opacity: 0.7;
 }
 ```
 
-For a more visible overlay (darker buttons):
+For a more visible overlay (denser buttons):
 
 ```css
 :root {
-    --bg-opacity: 0.5;
-    --button-opacity: 0.6;
+    --bg-opacity: 0.3;
+    --button-fill-opacity: 1;
 }
 ```
 
-> The combined overlap opacity is approximately `bg + button − (bg × button)`. With 0.4 + 0.4: 0.4 + 0.4 − 0.16 = 0.64. With 0.5 + 0.6: 0.5 + 0.6 − 0.30 = 0.80.
+> **Note (v1.2610.004):** the previous "alpha blending produces ~64% combined opacity" rule (40% bg + 40% buttons) no longer applies — the new defaults (20% bg + 95% buttons) produce a near-solid button on a faint background. To restore the old look, set `--bg-opacity: 0.4` and `--button-fill-opacity: 0.4`.
 
 ### LT/RT trigger wave effect (Xbox only)
 
