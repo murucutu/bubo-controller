@@ -11,6 +11,64 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Conversation
 
 ---
 
+## [v1.2610.008] — 2026-10-13
+
+### Conversation excerpt (PT-BR, verbatim)
+
+> 2. Em `bubo-controller`, notei que a mensagem/aviso de controle conectado ou desconectado aparece no meio do controle. Use o gap inferior de 27px para colocar a notificação centralizada naquele espaço com altura de 18px e centralize no gap, deixando 4.5px acima e abaixo do texto (18+9=27).
+
+### Fixed
+
+- **"No controller connected" hint repositioned to the bottom 27px gap**: in v1.2610.005, the hint was positioned with `position: absolute; inset: 0; display: flex; align-items: center; justify-content: center` — which placed the text in the geometric center of the 216px-tall overlay, overlapping the D-pad (Y center = 108). The maintainer observed this visual collision and requested the hint be moved to the bottom 27px gap (the controller's bottom margin, Y = 189 → 216), with the text in an 18px-tall band centered in the gap (4.5px above + 18px text + 4.5px below = 27px).
+  - **CSS change**: the `inset: 0` + `align-items: center` was replaced with explicit bottom-gap positioning:
+    ```css
+    .controller-hint {
+        position: absolute;
+        left: 0; right: 0;
+        bottom: var(--hint-bottom-gap, 4.5px);
+        height: var(--hint-height, 18px);
+        display: flex; align-items: center; justify-content: center;
+        line-height: 1;
+        /* ... rest unchanged ... */
+    }
+    ```
+  - **Two new CSS variables** added to `:root` for SSOT customization:
+    - `--hint-height: 18px` — the height of the hint band (where the text sits)
+    - `--hint-bottom-gap: 4.5px` — the margin from the bottom of the overlay to the bottom of the hint band
+  - The `line-height: 1` was added to ensure the 14px font fits cleanly inside the 18px band without overflow (default line-height of ~1.2 would make 14px text ~16.8px tall, still within 18px, but `line-height: 1` makes it exactly 14px so vertical centering is predictable).
+  - The math: overlay is 216px tall. The hint band sits at `bottom: 4.5px` with `height: 18px` → the band occupies Y = 216 - 4.5 - 18 = 193.5 to Y = 216 - 4.5 = 211.5. The remaining 4.5px above the band (Y = 189 to 193.5) is the top half of the 27px gap. Total gap: 4.5 + 18 + 4.5 = 27 ✓.
+
+### Verification (Agent Browser end-to-end, via `file://`)
+
+- Page loads with zero console errors.
+- Hint positioning (measured via `getBoundingClientRect()` on overlay at scale 2x, so values are 2× viewBox units):
+  - `overlay_h: 432px` (= 216 × 2) ✓
+  - `hint_top_from_overlay_top: 387px` (= 193.5 × 2) ✓ — hint starts at Y=193.5 in viewBox coords
+  - `hint_height: 36px` (= 18 × 2) ✓ — band is exactly 18px tall in viewBox
+  - `hint_bottom_from_overlay_bottom: 9px` (= 4.5 × 2) ✓ — 4.5px margin from bottom
+- Hint `.visible` class added after 5s (no gamepad) with `opacity: 0.6` ✓ (logic unchanged from v1.2610.005).
+- **VLM visual confirmation** of `/tmp/bubo-v008-hint-bottom.png`: "O texto está na parte inferior, em um espaço vazio abaixo do controle (especificamente abaixo do D-pad e dos botões de ação). Sim, há margem/respiro visível acima (entre a base do D-pad e o topo do texto) e abaixo do texto (antes da borda inferior do overlay). O texto 'Connect a controller' não está sobreposto ao centro do controle; ele serve como um rodapé informativo na parte inferior da interface." ✓
+
+### Audit
+
+- **Why the gap is 27px**: the maintainer specified 27px (the controller's bottom margin in the 216px-tall overlay). The controller's geometric body ends at Y=189 (the bottom of the D-pad / analog stick reach rings), leaving Y=189→216 (27px) as a reserved zone. This is the same zone where the dock would sit in the streaming theme — keeping the hint there is consistent with the project's visual rhythm (the dock is also a 72px-tall element centered in the bottom 108px dead zone of the 4K canvas).
+
+- **Why 18px text height + 4.5px margins**: the maintainer specified `18+9=27` — interpreting the "9" as 4.5 + 4.5 (the margin above + below the text). The 18px band gives 14px font (the `--hint-size`) comfortable headroom with `line-height: 1`. The 4.5px margins are half of 9, distributing the 9px remainder symmetrically above and below the text.
+
+- **No JS changes needed**: the `setupControllerHint()` and `updateControllerHint()` functions (added in v1.2610.005) create the `<div class="controller-hint">` and toggle the `.visible` class. The positioning is entirely CSS-driven, so no JS update was needed — just the CSS rule change.
+
+### ⚠️ Compliance
+
+- None. All 15 Never-Rules (AGENT.md §12) verified intact.
+- Invariants §6.1, §6.3, §6.4, §6.5, §6.8 all preserved.
+- No secrets, no PRIVATE_PLANS.md staged, GitHub token not persisted.
+
+### Sprint footer
+
+Sprint: v1.2610.008 — Hint repositioned to the bottom 27px gap (4.5 + 18 + 4.5 = 27) so it no longer overlaps the controller body. Two new CSS variables for customization. Let's Play Up!
+
+---
+
 ## [v1.2610.007] — 2026-10-13
 
 ### Conversation excerpt (PT-BR, verbatim)

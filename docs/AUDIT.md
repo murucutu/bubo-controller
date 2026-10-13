@@ -604,3 +604,90 @@ OBS test matrix (AGENT.md §7.2) não executado pelo agente (sandbox sem gamepad
 ### Decisões pendentes
 
 Nenhuma.
+
+---
+
+## v1.2610.008 — 2026-10-13 · Hint reposicionado para o gap inferior de 27px
+
+### Resumo
+
+Bugfix simples, puramente de CSS. O hint "no controller connected" estava aparecendo no centro geométrico do overlay (sobre o D-pad), colidindo visualmente com o corpo do controle. O mantenedor pediu para movê-lo para o gap inferior de 27px (a margem inferior do controle no overlay de 216px), com texto em faixa de 18px centralizada no gap (4.5px acima + 18px texto + 4.5px abaixo = 27px).
+
+### Mudança de CSS
+
+**Antes (v1.2610.005)**:
+```css
+.controller-hint {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    /* ... */
+}
+```
+Posicionamento: centro geométrico do overlay (216/2 = 108, sobre o D-pad).
+
+**Depois (v1.2610.008)**:
+```css
+.controller-hint {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: var(--hint-bottom-gap, 4.5px);
+    height: var(--hint-height, 18px);
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1;
+    /* ... */
+}
+```
+Posicionamento: faixa de 18px a 4.5px da borda inferior do overlay.
+
+### Novas variáveis CSS (SSOT)
+
+Adicionadas ao `:root`:
+- `--hint-height: 18px` — altura da faixa do hint (onde o texto se senta)
+- `--hint-bottom-gap: 4.5px` — margem da borda inferior do overlay até a base da faixa do hint
+
+### Matemática do posicionamento
+
+Overlay tem 216px de altura. O gap inferior de 27px é a zona reservada Y=189→216 (a margem inferior do controle — o corpo do controle termina em Y=189, onde o D-pad e os analógicos tocam a base).
+
+A faixa do hint:
+- Base da faixa: Y = 216 - 4.5 = 211.5
+- Topo da faixa: Y = 211.5 - 18 = 193.5
+- Acima da faixa (topo do gap): Y = 189 → 193.5 = 4.5px de respiro superior
+- Abaixo da faixa (base do gap): Y = 211.5 → 216 = 4.5px de respiro inferior
+- Total do gap: 4.5 + 18 + 4.5 = 27 ✓
+
+### Por que `line-height: 1`
+
+O `--hint-size` (font-size) é 14px. Com `line-height` default (~1.2), o texto teria 16.8px de altura — ainda cabe em 18px, mas a centralização vertical seria imprecisa (o texto deslocaria para baixo dentro da faixa). Com `line-height: 1`, o texto tem exatamente 14px de altura e o flex-center centraliza previsivelmente.
+
+### Por que sem mudança no JS
+
+O `setupControllerHint()` (v1.2610.005) cria o `<div class="controller-hint">` e o `updateControllerHint()` (v1.2610.005) toggle a classe `.visible`. O posicionamento é 100% CSS-driven — só precisei mudar a regra CSS, sem tocar no JS.
+
+### Verificação Agent Browser (via file://)
+
+Medição via `getBoundingClientRect()` (overlay em scale 2x, então valores em CSS px = 2× viewBox units):
+
+| Medição | Valor (CSS px) | ViewBox equiv | Esperado | OK |
+|---|---|---|---|---|
+| overlay_h | 432px | 216 | 216 | ✓ |
+| hint_top_from_overlay_top | 387px | 193.5 | 193.5 | ✓ |
+| hint_height | 36px | 18 | 18 | ✓ |
+| hint_bottom_from_overlay_bottom | 9px | 4.5 | 4.5 | ✓ |
+
+Hint `.visible` adicionado após 5s sem gamepad (opacity 0.6) ✓ (lógica de v1.2610.005 preservada).
+
+VLM confirmação visual de `/tmp/bubo-v008-hint-bottom.png`: "O texto está na parte inferior, em um espaço vazio abaixo do controle (especificamente abaixo do D-pad e dos botões de ação). Sim, há margem/respiro visível acima e abaixo do texto. O texto não está sobreposto ao centro do controle; ele serve como um rodapé informativo na parte inferior da interface." ✓
+
+### Decisões técnicas não-invariantes
+
+- **Interpretação de "18+9=27"**: o mantenedor especificou "altura de 18px e centralize no gap, deixando 4.5px acima e abaixo do texto (18+9=27)". Interpretei "9" como 4.5 + 4.5 (margem superior + margem inferior), não como 9px contínuos de um lado. Razão: "centralize no gap" implica simetria — 4.5px de cada lado distribui o respiro igualmente. Se fosse 9px de um lado só, o texto não estaria centralizado no gap.
+- **Variáveis CSS em vez de hardcoded**: adicionei `--hint-height` e `--hint-bottom-gap` ao `:root` (pilar SSOT) em vez de hardcoded `18px`/`4.5px` direto no seletor. O seletor usa `var(--hint-height, 18px)` com fallback para o valor default, permitindo customização via `?` URL params no futuro sem mexer no CSS.
+
+### Limitação honesta
+
+OBS test matrix (AGENT.md §7.2) não executado pelo agente (sandbox sem gamepad/OBS). Mantenedor deve re-testar v1.2610.008 no OBS (pull + reload Browser Source) para confirmar o hint no gap inferior no ambiente real.
+
+### Decisões pendentes
+
+Nenhuma.
