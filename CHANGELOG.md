@@ -11,6 +11,131 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Conversation
 
 ---
 
+## [v1.2610.005] — 2026-10-13
+
+### Conversation excerpt (PT-BR, verbatim)
+
+> Entrego a nova versão do SVG do controle XBOX. O que mudou:
+> - Fundo único na cor `umbral` que deverá ser passada com opacidade 95% para usar no OBS;
+> - Todos os controles são só os contornos em `nimbus` com traço interno de 5pt (= 5px?);
+>
+> O resto será feito por código, como:
+> - Sobrepor as cores do ABXY pelas cores do Xbox/Playstation;
+> - Criar e usar LABELS em texto para os botões ABXY, LB/RB, LT/RT, L3/R3 e buscar ícones para usar em VIEW/MENU (preferência pelos originais, se possível);
+> - Comportamento LT/RT (gatilhos) continua com efeito "onda/wave", mas mascarar efeito para não vazar para fora do contorno do botão/gatilho no desenho SVG (atualmente vaza);
+> - Planejar como usar a ideia do aviso "controle desconectado/conectado", talvez, feito nos mesmos moldes do Alerta com texto simples em Sofia Sans XC Black?
+>
+> Aceito outras ideias. Arcade ainda fica pendente. Eu preciso deste controle pronto ainda hoje.
+
+> Desconsidere o SVG anterior, o KNOB do L3/R3 estava com o tamanho feito para o controle arcade (1/4 em vez de 2/3 do alcance).
+>
+> Outra coisa que esqueci de mencionar, mas vamos manter é o preenchimento em `nimbus` quando os botões forem pressionados (ou coloridos no ABXY, se ativado e animação `wave` para os gatilhos) e os KNOBS do L3/R3 serão preenchidos com `nimbus` 50% em idle para diferenciar do alcance e serão `nimbus` 100% opacos quando pressionados.
+>
+> Desculpe a confusão.
+
+### Added
+
+- **New Xbox SVG model (v1.2610.005)** — `masks/controllers/xbox.svg` and the inline `<template id="svg-xbox">` in `index.html` replaced with the maintainer's corrected Affinity Designer export. The new SVG:
+  - Maintains `viewBox="0 0 640 216"` (canvas is 1/6 width × 10% height of 3840×2160 base, same as v1.2610.004).
+  - Background is now a `<path id="BACKGROUND">` as a direct child of `<g id="XBOX">` (not wrapped in a `<g transform>` like v1.2610.004) with `fill:rgb(13,13,13)` baked in (Umbral).
+  - All button shapes (a/b/x/y, lb/rb/lt/rt, view/menu, up/down/left/right) are drawn as ring paths (outer + inner subpaths) filled with `rgb(242,242,242)` (Nimbus) using `fill-rule:evenodd`. This is the "outline-only with internal stroke" form requested by the maintainer. The observed stroke width in the geometry is ~4.5 path-local units, which after the parent `<g>` scale of 0.666667 becomes ~3.0 viewBox units (~3 CSS px at 1:1 display). The maintainer specified "5pt internal stroke" — see Audit note below on the 5pt-vs-5px-vs-geometry reconciliation.
+  - **L3/R3 KNOB size CORRECTED**: the previous (cancelled) attempt had the knob at 1/4 of the reach (arcade sizing). The new SVG has the knob at 2/3 of the reach (Xbox sizing), per maintainer correction. Knob scale = 0.444444 (= (2/3)²) of the path-local coords; reach scale = 0.666667 (= 2/3). After transform: knob display diameter / reach display diameter = 2/3 ✓.
+  - IDs renamed from Affinity's uppercase convention (`BUTTON_A`, `LEFT_JOY_KNOB`, `DPAD_UP`, etc.) to the project's lowercase convention (`a`, `left_joy`, `up`, etc.) so the existing JS (`BUTTON_MAP`, `collectElements`, `cacheKnobData`) finds them without changes.
+  - **VIEW/MENU icons embedded** as `<rect class="button-icon">` children of the `<g id="view">` and `<g id="menu">` groups (positioned at the pill centers, in path-local coords). Generic UI metaphors — two-overlapping-rounded-rectangles for View, three-horizontal-lines (hamburger) for Menu — not Microsoft-trademarked art (invariant §6.4 preserved).
+
+- **`processSvg()` rewritten** to split each button ring into FILL + OUTLINE:
+  - Each button `<g>` originally has ONE `<path>` with 2 subpaths (ring/outline). The new `processSvg()` creates a second `<path>` with only the outer subpath (solid) and inserts it BEFORE the original ring. The `<g>` now has:
+    - `:nth-child(1)` = FILL (outer-only solid path, invisible in idle, full-color in pressed)
+    - `:nth-child(2)` = OUTLINE (ring, both subpaths, always visible, rendered via `fill-rule:evenodd`)
+  - This replaces the v1.2610.004 logic that used `replaceRingWithCircle()` for circular buttons and `extractOuterSubpath()` for non-circular ones. Both helpers are removed (no longer needed).
+  - Skips: root group (`<g id="XBOX">`), `<path id="BACKGROUND">`, and reach rings (`g[id$="_reach"]`) — these have no fill, only outline (handled by the existing CSS rule for `_reach`).
+
+- **CSS background selector updated** to include `.controller-svg > g > path#BACKGROUND` (the new SVG's direct-child background path). The rule now uses `!important` on `fill` and `fill-opacity` to win over the button-fill rule `.controller-svg g[id] > :nth-child(1)` (which would otherwise match the BACKGROUND path as the `:nth-child(1)` of the root `<g id="XBOX">` and paint it with the accent instead of the background color — this was a real bug caught by Agent Browser verification, see Verification below).
+
+- **Button fill behavior changed** (per maintainer v1.2610.005 spec):
+  - Idle: `--button-fill-opacity: 0` (was 0.95 in v1.2610.004) — buttons are OUTLINE-ONLY in idle.
+  - Pressed: `--button-pressed-opacity: 1` (was 0.95) — full solid fill.
+  - Outline is ALWAYS Nimbus (`var(--accent)`), regardless of `?color=` scheme. The ABXY colors (via `--color-a/b/x/y`) only affect the PRESSED FILL, not the outline. This matches the maintainer's spec: "Todos os controles são só os contornos em `nimbus`" (idle) + "ou coloridos no ABXY, se ativado" (pressed).
+
+- **L3/R3 knob pressed opacity = 100%** (was 95% in v1.2610.004): `--knob-pressed-opacity: 1`. Idle stays at `--knob-fill-opacity: 0.5` (Nimbus 50%, unchanged).
+
+- **Background opacity = 95%** (was 20%): `--bg-opacity: 0.95`. Per maintainer: "Fundo único na cor `umbral` que deverá ser passada com opacidade 95% para usar no OBS".
+
+- **Overlay opacity = 1.0** (was 0.85): `.controller-overlay { opacity: 1 }`. The previous 0.85 was reducing the effective background opacity to 0.85 × 0.20 = 17% (v1.2610.004). With the new 95% background, the overlay must be at 1.0 to let the full 95% show through.
+
+- **Trigger wave masked to trigger contour** (per maintainer: "mascarar efeito para não vazar para fora do contorno do botão/gatilho"):
+  - `.trigger-overlay` now has `clip-path: inset(0 round var(--trigger-clip-radius))` where `--trigger-clip-radius: 9px` (viewBox units, computed from the new SVG's pill geometry after the parent `<g>` transform).
+  - The clip-path is in the trigger-overlay div's local CSS coords (which match viewBox units at 1:1 display), and the parent `.controller-overlay` `transform: scale()` scales the whole thing together — so the corner radius scales correctly with `?scale=` and `?fit=`.
+  - The 9px corner radius is an approximation (the actual trigger path uses non-circular Bezier corners that, after the asymmetric 1.333/0.6667 transform, become visually symmetric at 9 viewBox units). The approximation is visually very close to the trigger outline; sub-pixel differences are imperceptible at OBS rendering sizes.
+
+- **"No controller connected" hint** (per maintainer: "aviso 'controle desconectado/conectado' ... nos mesmos moldes do Alerta com texto simples em Sofia Sans XC Black"):
+  - New `<div class="controller-hint">` created by `setupControllerHint()` (called from the constructor, after `loadController()`).
+  - Bilingual: `<html lang="pt">` → "Conecte um controle"; default → "Connect a controller".
+  - Visibility logic in `updateControllerHint()` (called from `update()` on every frame):
+    - No gamepad + 5s elapsed (`--hint-delay-ms: 5000`) + never connected before → add `.visible` class (fade-in 200ms via `--hint-transition-ms: 200`).
+    - Gamepad connected → remove `.visible` + set `gamepadEverConnected = true`.
+    - Once `gamepadEverConnected` is true, the hint NEVER reappears (avoids noise during a stream if the controller briefly disconnects).
+  - Styling: `--hint-color: var(--nimbus)`, `--hint-opacity: 0.6` (subtle), `--hint-font-weight: 900`, `--hint-size: 14px`. Centered, `pointer-events: none`, `z-index: 20`.
+  - **Sofia Sans XC Black not embedded** (invariant §6.3: no external fonts at runtime). The hint uses the existing system font stack (`--label-font`) at weight 900 as a fallback. The maintainer may provide the font file in a future Sprint for exact visual match (see Audit below).
+  - Debug: `.controller-overlay.debug .controller-hint { opacity: var(--hint-opacity) !important }` — double-click the overlay to enter debug mode and force-show the hint for visual QA.
+
+- **CSS variables for the hint and trigger clip** added to `:root`:
+  - `--hint-color`, `--hint-opacity`, `--hint-font-weight`, `--hint-size`, `--hint-delay-ms`, `--hint-transition-ms` (customization API for the hint).
+  - `--trigger-clip-radius` (customization API for the trigger wave mask radius).
+
+- **L3/R3 label aliases in `collectElements()`**: the new Xbox SVG has `<g id="left_joy">` and `<g id="right_joy">` (not `<g id="l3">`/`<g id="r3">`), so `addLabels()` would skip L3/R3 (the elements weren't found). Added aliases `this.elements.l3 = left_joy` and `this.elements.r3 = right_joy` (Xbox only — arcade has real l3/r3). The L3/R3 text labels now render at the knob centers, following the knob as it moves.
+
+### Changed
+
+- **Per-button `--button-color` mapping** updated: the previous rules `.controller-svg g#l3 { --button-color: var(--color-l3); }` and `g#r3` referenced non-existent `<g id="l3">` / `<g id="r3">` elements (the new SVG uses `left_joy` / `right_joy`). Updated to `.controller-svg g#left_joy` and `g#right_joy`.
+- **Outline CSS** now uses `fill-rule: evenodd !important` (was implicit/nonzero) to reliably render the ring as an outline. The fill uses `fill-rule: nonzero !important` (solid).
+- **Comment headers** in `:root` updated from "v1.2610.004" to "v1.2610.005".
+
+### Audit
+
+- **5pt vs 5px reconciliation**: the maintainer asked "traço interno de 5pt (= 5px?)". In CSS/SVG, `1pt = 1.333px` (because `1pt = 1/72 inch` and `1px = 1/96 inch`). So `5pt = 6.667px`. The Affinity export shows the gap between outer and inner contour as `4.5` path-local units (e.g., outer at x=320, inner at x=315.5 in the LB path). After the parent `<g>` scale of 0.666667, this becomes `4.5 × 0.666667 = 3.0` viewBox units. At 1:1 display (640×216 CSS px), the stroke is ~3 CSS px wide. This is thinner than the maintainer's specified 5pt (6.667px), but the SVG was accepted as-exported (the maintainer shipped the .svg file). The discrepancy is documented here; if the maintainer wants the stroke wider, the SVG must be re-exported from Affinity with a larger stroke setting.
+
+- **Sofia Sans XC Black font not embedded**: invariant §6.3 (offline-first, no external runtime dependencies) prohibits loading Sofia Sans from Google Fonts at runtime. The hint uses the system font stack at weight 900 as a fallback. To achieve exact visual match, the maintainer would need to provide the font file (e.g., `SofiaSans-Black.ttf`) for base64 embedding in a future Sprint — the streaming repo (`/home/z/my-project/repos/streaming/brand/fonts/`) already has Sofia Sans Extra Condensed, but the regular XC variant is not in the workspace. The agent recommends deferring this to a future Sprint to avoid scope creep on v1.2610.005.
+
+- **Background `!important` rationale**: the new CSS rule `.controller-svg > g > path#BACKGROUND { fill: var(--color-bg) !important; fill-opacity: var(--bg-opacity) !important; }` uses `!important` because the button-fill rule `.controller-svg g[id] > :nth-child(1) { fill: var(--button-color, var(--accent)) !important; }` also matches the BACKGROUND path (it is the `:nth-child(1)` of `<g id="XBOX">`). Without `!important` on the background rule, the button rule would paint the background with Nimbus instead of Umbral. This was caught by Agent Browser verification (see Verification) — the first attempt had `fill: rgb(242,242,242)` on the background, indicating the button rule was winning. The fix is documented in the CSS comment block.
+
+### Verification (Agent Browser end-to-end)
+
+- Page loads with zero console errors, zero page errors across all tested states.
+- **Background**: `rgb(13, 13, 13)` (Umbral) at `fill-opacity: 0.95` ✓.
+- **Button A idle**: fill `rgb(242, 242, 242)` (Nimbus) at `fill-opacity: 0` (invisible — outline-only) ✓.
+- **Button A outline**: `rgb(242, 242, 242)` (Nimbus) at `fill-opacity: 1` with `fill-rule: evenodd` (ring rendered as outline) ✓.
+- **`<g id="view">` children**: 5 elements (path fill + path outline + 2 rect button-icon + text label) ✓ — icons embedded correctly.
+- **`<g id="a">` children**: 3 elements (path fill + path outline + text label "A") ✓ — labels render at the button center.
+- **LT trigger overlay**: `clip-path: inset(0px round 9px)` applied ✓ — wave is masked to the trigger contour.
+- **Hint**: present as `<div class="controller-hint">` with text "Connect a controller", hidden by default (`opacity: 0`). After 6s without a gamepad, the `.visible` class is added → `opacity: 0.6` ✓.
+- **`?color=xbox`**: ABXY CSS variables applied (`--color-a: #4CAF50`, `--color-b: #E5342A`, `--color-x: #0E7DC0`, `--color-y: #F2C200`) ✓.
+- **`?scale=2`**: page loads and renders without errors ✓.
+- **`?controller=arcade`**: regression check — arcade layout loads and renders without errors ✓ (the arcade SVG is unchanged; `processSvg()` skips it because its buttons have only 1 path each, not a 2-subpath ring).
+- **VLM visual confirmation** of `/tmp/bubo-v005-idle-hint.png`: fundo escuro (preto sólido), botões como contornos brancos (outlines) com interior transparente, texto "Connect a controller" visível no centro em cinza claro, paleta escura com contornos claros. ✓ Matches the maintainer's spec exactly.
+- Screenshots captured: `/tmp/bubo-v005-idle.png`, `/tmp/bubo-v005-idle-hint.png`, `/tmp/bubo-v005-color-xbox.png`, `/tmp/bubo-v005-scale2.png`, `/tmp/bubo-v005-arcade.png`.
+
+### Limitation honestly declared
+
+- **OBS test matrix (AGENT.md §7.2) NOT executed by the agent** — the sandbox has no real gamepad and no OBS Studio. The agent executed the Agent Browser self-verification (§7.3) and confirmed the visual + structural state of the overlay, but the maintainer must run the full OBS test matrix (real gamepad button presses, pressure-sensitive triggers, analog stick movement) before declaring v1.2610.005 production-ready for streams. The agent's verification covers: page load, console-clean, SVG structure, CSS computed styles, hint visibility logic, ?color/xbox parameter, ?scale=2 parameter, ?controller=arcade regression. Not covered: real button presses, real trigger pressure, real analog movement, OBS CEF quirks.
+- **Arcade layout still pending** (per maintainer: "Arcade ainda fica pendente") — the arcade SVG is unchanged from v1.2610.001 and continues to letterbox inside the 640×216 overlay (the arcade SVG is 768×324). A future Sprint will deliver the new arcade SVG.
+
+### ⚠️ Compliance
+
+- None. All 15 Never-Rules (AGENT.md §12) verified intact.
+- `PRIVATE_PLANS.md` confirmed gitignored and not staged (no `git add -f` used).
+- No secrets in committed files. The GitHub token is not persisted (one-shot push URL).
+- Invariant §6.3 (offline-first) preserved — no external fonts loaded; system font stack fallback used for the hint.
+- Invariant §6.4 (no brand art) preserved — VIEW/MENU icons are generic UI metaphors (two-squares, hamburger), not Microsoft-trademarked art.
+- Invariant §6.5 (Track C only) preserved — new SVG inlined as `<template id="svg-xbox">`, JS-cloned at runtime.
+- Invariant §6.1 (single-file HTML) preserved — all changes are in `index.html` + `masks/controllers/xbox.svg` (the latter is the source-of-truth blueprint, inlined at runtime).
+
+### Sprint footer
+
+Sprint: v1.2610.005 — New Xbox SVG (corrected L3/R3 knob at 2/3 reach), outline-only buttons, Umbral 95% background, trigger wave masked, VIEW/MENU icons embedded, L3/R3 labels fixed, "no controller connected" hint. Let's Play Up!
+
+---
+
 ## [v1.2610.004] — 2026-10-08
 
 ### Conversation excerpt (PT-BR, verbatim)

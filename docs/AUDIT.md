@@ -396,3 +396,61 @@ O mantenedor entregou um novo `masks/controllers/xbox.svg` exportado do Affinity
 ### Decisões pendentes
 
 - Nenhuma. O mantenedor confirmou as cores (`Nimbus #F2F2F2 | Umbral #0D0D0D`) e o SVG. As duas decisões técnicas (renomeação `view1`→`menu`, interpretação L3/R3 (a)) foram adotadas pelo agente como defaults não-invariantes e documentadas aqui. Se o mantenedor preferir L3/R3 como elementos separados (interpretação (b)), uma Sprint futura deve adicionar `g#l3` / `g#r3` ao SVG e ajustar o JS.
+
+---
+
+## v1.2610.005 — 2026-10-13 · Redesign outline-only Xbox + L3/R3 knob fix + trigger wave mask + VIEW/MENU icons + hint "no controller"
+
+### Resumo
+
+Sprint grande, com 5 mudanças integradas no Xbox layout, todas derivadas do chat com o mantenedor em 13/10/2026. Arcade layout permanece pendente (o mantenedor entregarará o novo SVG arcade em sprint futura).
+
+### Decisões técnicas (não-invariantes) adotadas pelo agente
+
+- **Renomeação de IDs uppercase → lowercase**: o novo SVG exportado pelo Affinity usa `BUTTON_A`, `LEFT_JOY_KNOB`, `DPAD_UP`, etc. O projeto usa convenção lowercase (`a`, `left_joy`, `up`). O agente renomeou TODOS os IDs no SVG para lowercase antes de inline no `<template id="svg-xbox">` e salvar em `masks/controllers/xbox.svg`. Justificativa: o JS existente (`BUTTON_MAP`, `collectElements()`, `cacheKnobData()`) usa lowercase; renomear no SVG evita retrabalho no JS. Alternativa considerada: adicionar mapeamento uppercase→lowercase no JS. Rejeitada: aumenta acoplamento e adiciona complexidade sem benefício.
+
+- **Ícones VIEW/MENU como `<rect class="button-icon">` em path-local coords**: o agente desenhou os ícones como dois retângulos sobrepostos (View) e três retângulos horizontais (Menu), embutidos como filhos do `<g id="view">` / `<g id="menu">` no SVG template. Posição em path-local coords (não viewBox) para herdar o transform do `<g>` pai. Justificativa: mantém o ícone como parte do SVG (herda transform, posicionamento automático), e o CSS `.button-icon` pinta-os com `var(--accent)` (Nimbus) em idle e `var(--color-bg)` (Umbral) em pressed (mesmo comportamento do label text). Alternativa considerada: adicionar ícones via JS em `addLabels()`. Rejeitada: mistura concerns (labels são texto, ícones são SVG) e adicionaria complexidade ao JS.
+
+- **Trigger wave mask via `clip-path: inset(0 round 9px)`**: o agente usou CSS `clip-path` no `.trigger-overlay` em vez de SVG `<clipPath>` ou canvas `ctx.clip()`. Justificativa: (1) CSS `clip-path` é declarativo, não requer JS extra; (2) funciona em CEF 111+ (invariant §6.8 verificado); (3) o `clip-path` é em coords CSS locais do div (que casam com viewBox units no display 1:1), e o `transform: scale()` no parent `.controller-overlay` escala o conjunto, inclusive o clip — então `?scale=2` funciona corretamente. Alternativa considerada: canvas `ctx.clip()` com `Path2D` do path do trigger. Rejeitada: requereria parse do path data em coords locais e aplicação do transform manualmente — complexidade desnecessária.
+
+- **Hint "no controller" com system font weight 900 (não Sofia Sans XC Black)**: o mantenedor pediu "Sofia Sans XC Black". Invariant §6.3 (offline-first) proíbe carregar fontes externas em runtime. O agente usou a font stack existente (`--label-font`) com peso 900 (`--hint-font-weight: 900`). Justificativa: mantém §6.3 intacto. Limitação documentada no CHANGELOG e ROADMAP (item "Sofia Sans XC Black font embedding" no backlog de Future Technical Improvements). Para matching visual exato, o mantenedor precisa fornecer o `.ttf` para embed como base64 em sprint futura.
+
+- **Hint não reaparece após primeira conexão**: o agente escolheu `gamepadEverConnected` flag que, uma vez `true`, suprime o hint para sempre (mesmo se o gamepad desconectar brevemente). Justificativa: evita ruído durante a live se o controle cair e voltar. Alternativa considerada: reaparecer após N segundos de desconexão. Rejeitada: muito agressiva para uma "TV 24/7"; o hint é primariamente um aviso de "você esqueceu de plugar o controle antes de começar", não um monitor contínuo de conexão.
+
+- **5pt stroke reconciliation**: o mantenedor pediu "traço interno de 5pt (= 5px?)". O agente confirmou via cálculo: em CSS/SVG, `1pt = 1.333px` (porque `1pt = 1/72 inch` e `1px = 1/96 inch`). Então `5pt = 6.667px`. A geometria exportada pelo Affinity mostra gap de `4.5` unidades path-local entre contorno outer e inner. Após o scale `0.666667` do `<g>` pai, isso vira `4.5 × 0.666667 = 3.0` viewBox units. No display 1:1 (640×216 CSS px), o traço é ~3 CSS px — mais fino que os 5pt (6.667px) pedidos. O agente aceitou o SVG como exportado (o mantenedor enviou o arquivo pronto) e documentou a discrepância aqui. Se o mantenedor quiser o traço mais largo, precisará re-exportar do Affinity com stroke maior.
+
+### Mudanças no JS (`processSvg()` reescrito)
+
+- **Antes (v1.2610.004)**: cada `<g>` de botão tinha DOIS filhos (`<circle>` fill + `<path>` anel, ou 2 paths). O JS chamava `replaceRingWithCircle()` para botões circulares (substituía o anel por um `<circle>` sólido) ou `extractOuterSubpath()` para não-circulares (mantinha só o outer subpath).
+- **Agora (v1.2610.005)**: cada `<g>` de botão tem UM `<path>` anel (2 subpaths: outer + inner). O JS cria um SEGUNDO `<path>` com apenas o outer subpath (sólido) e insere ANTES do anel. Resultado:
+  - `:nth-child(1)` = fill (outer sólido, invisível em idle, cheio em pressed)
+  - `:nth-child(2)` = outline (anel, both subpaths, render via `fill-rule: evenodd`)
+- **Funções removidas**: `replaceRingWithCircle()`, `extractOuterSubpath()` (não mais necessárias).
+- **Skip paths**: root group (`<g id="XBOX">`), `<path id="BACKGROUND">`, reach rings (`g[id$="_reach"]`) — esses não têm fill, só outline (o CSS rule existente para `_reach` cuida deles).
+
+### Bug real capturado pelo Agent Browser
+
+- **Background inicialmente pintado com Nimbus em vez de Umbral**: a regra `.controller-svg g[id] > :nth-child(1) { fill: var(--button-color, var(--accent)) !important; }` (button fill) também casava com o `<path id="BACKGROUND">` (que é `:nth-child(1)` de `<g id="XBOX">`). Sem `!important` na regra do background, a regra do botão vencia e pintava o bg com Nimbus. Corrigido adicionando `!important` à regra `.controller-svg > g > path#BACKGROUND { fill: var(--color-bg) !important; fill-opacity: var(--bg-opacity) !important; }`. Detalhado no comentário CSS acima da regra.
+
+### Verificação Agent Browser
+
+- Zero erros de console, zero erros de página em todos os estados testados.
+- Background: `rgb(13, 13, 13)` (Umbral) a 95% ✓
+- Botão A idle: fill `rgb(242, 242, 242)` (Nimbus) a 0% (invisível — outline-only) ✓
+- Botão A outline: `rgb(242, 242, 242)` (Nimbus) a 100% com `fill-rule: evenodd` (anel visível) ✓
+- `<g id="view">` children: 5 (path fill + path outline + 2 rect button-icon + text label) ✓
+- `<g id="a">` children: 3 (path fill + path outline + text label "A") ✓
+- LT trigger overlay: `clip-path: inset(0px round 9px)` aplicado ✓
+- Hint: presente, hidden por default, `.visible` adicionado após 5s sem gamepad (opacity 0.6) ✓
+- `?color=xbox`: ABXY colors aplicadas (`--color-a: #4CAF50` etc.) ✓
+- `?scale=2`: carrega sem erros ✓
+- `?controller=arcade`: regression check — carrega sem erros (arcade SVG não tem rings, `processSvg()` pula) ✓
+- VLM visual confirmation de `/tmp/bubo-v005-idle-hint.png`: fundo preto, contornos brancos, "Connect a controller" no centro ✓
+
+### Limitação honesta declarada
+
+- **OBS test matrix (AGENT.md §7.2) NÃO executado pelo agente**: o sandbox não tem gamepad real nem OBS Studio. O agente executou o Agent Browser self-verification (§7.3) e confirmou estado visual + estrutural, mas o mantenedor deve rodar o OBS test matrix completo (botões reais, triggers pressure-sensitive, analog stick) antes de declarar v1.2610.005 production-ready.
+
+### Decisões pendentes
+
+- Nenhuma. Todas as 6 decisões técnicas acima foram adotadas pelo agente como defaults não-invariantes e documentadas. Se o mantenedor preferir alguma alternativa, uma Sprint futura pode ajustar.
