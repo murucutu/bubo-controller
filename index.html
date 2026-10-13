@@ -136,11 +136,16 @@
             transition: fill-opacity 0.08s ease-out;
         }
         /* nth-child(2) = button outline (ring).
-           v1.2610.005: outline is ALWAYS Nimbus (the project accent), never the
-           ABXY color (which only affects the pressed fill). fill-rule: evenodd
-           renders the ring as an outline (inner is "hollow"). */
+           v1.2610.006: outline is COLORED by the per-button --button-color
+           (which resolves to --color-a/b/x/y for ABXY, defaulting to
+           var(--accent) = Nimbus). When ?color=xbox is active, the ABXY
+           colors (#4CAF50 green, #E5342A red, #0E7DC0 blue, #F2C200 amber)
+           appear in BOTH the outline AND the pressed fill — matching the
+           v1.2610.004 behavior the maintainer requested ("O contorno poderia
+           continuar colorido, como era"). fill-rule: evenodd renders the
+           ring as an outline (inner is "hollow"). */
         .controller-svg g[id] > :nth-child(2) {
-            fill: var(--accent) !important;
+            fill: var(--button-color, var(--accent)) !important;
             fill-opacity: 1;
             fill-rule: evenodd !important;
             transition: fill 0.08s ease-out;
@@ -212,15 +217,27 @@
             fill-opacity: 1;
         }
 
-        /* ═══ BOUNDARIES — outline only (white), no fill ═══ */
-        .controller-svg g[id$="_reach"] > :nth-child(1),
-        .controller-svg g#joy_reach > :nth-child(1) {
-            fill: none !important;
-        }
-        .controller-svg g[id$="_reach"] > :nth-child(2),
-        .controller-svg g#joy_reach > :nth-child(2) {
+        /* ═══ BOUNDARIES (JOY_REACH) — v1.2610.006 fix ═══
+           v1.2610.005 bug: the new Xbox SVG has reach groups with ONLY 1 path
+           (a ring: outer + inner subpaths). The old CSS rule
+           `:nth-child(1) { fill: none }` was HIDING the reach (because the
+           only path IS :nth-child(1)). The `:nth-child(2)` rule had nothing
+           to match, so the reach outline was invisible.
+           v1.2610.006 fix: target reach paths by EXPLICIT ID (not attribute
+           selector) to beat the specificity of the button-fill rule
+           `.controller-svg g[id] > :nth-child(1)`, which also matches the
+           reach path (it IS :nth-child(1) of its group) and would override
+           fill-opacity to 0 (idle button fill opacity). ID selectors have
+           specificity (0,1,0,0) which beats the attribute selector
+           (0,0,3,1). Render as a ring via `fill-rule: evenodd`.
+           Works for both Xbox (left_joy_reach, right_joy_reach) and arcade
+           (joy_reach). */
+        .controller-svg g#left_joy_reach > path,
+        .controller-svg g#right_joy_reach > path,
+        .controller-svg g#joy_reach > path {
             fill: var(--accent) !important;
-            fill-opacity: 1;
+            fill-opacity: 1 !important;
+            fill-rule: evenodd !important;
         }
 
         /* Knob movement transition. */
@@ -246,18 +263,27 @@
             fill-opacity: 1;
         }
 
-        /* ═══ BUTTON ICONS (v1.2610.005 — VIEW/MENU) ═══
+        /* ═══ BUTTON ICONS (v1.2610.005 — VIEW/MENU; v1.2610.006 — hidden by default) ═══
            Icons are embedded as <rect class="button-icon"> children of the
            button <g> (after the outline path, so they are nth-child(3)+).
-           They are styled like the outline (Nimbus, opacity 1) in idle, and
-           invert to Umbral (color-bg) in pressed (matching the label text
-           behavior). Generic UI metaphors (two-squares for View, hamburger
-           for Menu) — not brand art (invariant §6.4). */
+           v1.2610.006: HIDDEN BY DEFAULT (display: none). The maintainer
+           requested icons only appear with a URL argument. Show them by
+           adding the `.show-viewmenu-icons` class to the overlay, which the
+           JS does when `?viewmenu=1` is in the URL.
+           When visible, they are styled like the outline (Nimbus, opacity 1)
+           in idle, and invert to Umbral (color-bg) in pressed (matching the
+           label text behavior). Generic UI metaphors (two-squares for View,
+           hamburger for Menu) — not brand art (invariant §6.4). */
         .controller-svg g[id] .button-icon {
+            display: none;
             fill: var(--accent) !important;
             fill-opacity: 1;
             pointer-events: none;
             transition: fill 0.08s ease-out;
+        }
+        /* Show icons only when ?viewmenu=1 is active (JS adds the class). */
+        .controller-overlay.show-viewmenu-icons .controller-svg g[id] .button-icon {
+            display: inline;
         }
         .controller-svg g[id].pressed .button-icon {
             fill: var(--color-bg) !important;
@@ -541,6 +567,18 @@
                 for (const [k, v] of Object.entries(set)) root.style.setProperty(k, v);
             }
             applyIconSet();
+
+            /* v1.2610.006 — ?viewmenu=1 shows the VIEW/MENU icons (hidden by
+               default per maintainer request). Any truthy value (1, true, yes)
+               activates the icons. The CSS handles the actual display toggle
+               via the `.show-viewmenu-icons` class on the overlay. */
+            function applyViewMenuIcons() {
+                const raw = (new URLSearchParams(window.location.search).get('viewmenu') || '').toLowerCase();
+                if (raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on') {
+                    document.getElementById('controller-overlay')?.classList.add('show-viewmenu-icons');
+                }
+            }
+            applyViewMenuIcons();
 
             const BUTTON_MAP = Object.freeze({
                 a:0,b:1,x:2,y:3,lb:4,rb:5,lt:6,rt:7,

@@ -11,6 +11,79 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Conversation
 
 ---
 
+## [v1.2610.006] — 2026-10-13
+
+### Conversation excerpt (PT-BR, verbatim)
+
+> Encontrei 2 erros no controle virtual:
+> - Você colocou ícones em VIEW/MENU por padrão, eles só eram para aparecer se tivessem o argumento na URL;
+> - O JOY_REACH não aparece, o círculo maior que tinha o KNOB com tamanho 2/3 menor em relação a ele. O "reach" deve ser visível para saber até onde o knob do controle vai.
+> - Estou com o parâmetro/argumento de cores de Xbox ativado, mas não vejoas cores, você as desativou? O contorno poderia continuar colorido, como era e a cor de preenchimento deve ser 100% opaca, não deve ter transparência.
+
+### Fixed
+
+- **Bug 1 — VIEW/MENU icons hidden by default, opt-in via `?viewmenu=1`**:
+  - Root cause: in v1.2610.005, the icons were embedded as `<rect class="button-icon">` in the SVG template and rendered by default (no CSS `display` rule). The maintainer requested they only appear with a URL argument.
+  - Fix: CSS `.button-icon { display: none; }` by default. New class `.show-viewmenu-icons` on the overlay unhides them via `.controller-overlay.show-viewmenu-icons .controller-svg g[id] .button-icon { display: inline; }`.
+  - New JS `applyViewMenuIcons()` reads the `?viewmenu=` URL param (accepts `1`, `true`, `yes`, `on`) and adds the `.show-viewmenu-icons` class to the overlay.
+  - The icons remain in the SVG template (so they CAN be shown); they're just hidden by CSS until the URL param activates them.
+  - Usage: `?viewmenu=1` shows the two-squares (View) and hamburger (Menu) icons. Without the param, VIEW/MENU are pill-shaped outlines with no icon (text label `--label-view` / `--label-menu` are empty by default).
+
+- **Bug 2 — JOY_REACH (analog stick boundary) invisible**:
+  - Root cause: the new Xbox SVG (v1.2610.005) draws each reach group (`left_joy_reach`, `right_joy_reach`) with **ONE** `<path>` (a ring: outer + inner subpaths). The v1.2610.004 CSS had `.controller-svg g[id$="_reach"] > :nth-child(1) { fill: none !important; }` which was correct for the OLD SVG (which had 2 paths per reach group: a solid disc + a ring outline). In the NEW SVG, the only path IS `:nth-child(1)`, so `fill: none` hid it entirely.
+  - Compounding factor: even after removing `fill: none`, the button-fill rule `.controller-svg g[id] > :nth-child(1) { fill-opacity: var(--button-fill-opacity); fill-rule: nonzero !important; }` (which has specificity 0,0,3,1) was overriding the reach rule `.controller-svg g[id$="_reach"] > path` (specificity 0,0,2,2). The reach path inherited `fill-opacity: 0` (idle button fill opacity) and `fill-rule: nonzero` (solid disc instead of ring) — making it invisible.
+  - Fix: rewrote the reach CSS to use **explicit ID selectors** (`g#left_joy_reach > path`, `g#right_joy_reach > path`, `g#joy_reach > path`) which have specificity 0,1,1,2 — beating the button-fill rule. Added `!important` to `fill-opacity: 1` and `fill-rule: evenodd`. The reach now renders as a visible ring (Nimbus, 100% opacity) around each analog stick knob.
+  - Works for both Xbox (1 path per reach group) and arcade (2 identical paths per `joy_reach` — both render as the same ring, no visual difference).
+
+- **Bug 3 — `?color=xbox` ABXY colors not visible in outline**:
+  - Root cause: in v1.2610.005, the outline CSS was changed to `fill: var(--accent) !important` (always Nimbus), breaking the v1.2610.004 behavior where the outline used `var(--button-color)` (which resolves to `--color-a/b/x/y` for ABXY buttons, defaulting to `--accent` = Nimbus when no `?color=` scheme is active). The maintainer confirmed: "O contorno poderia continuar colorido, como era" — the outline should remain colored when `?color=xbox` is active.
+  - Fix: reverted the outline CSS to `fill: var(--button-color, var(--accent)) !important`. Now:
+    - Default (no `?color=`): outline = Nimbus (because `--color-a/b/x/y` default to `var(--accent)` = Nimbus).
+    - `?color=xbox`: outline = green A (`#4CAF50`), red B (`#E5342A`), blue X (`#0E7DC0`), amber Y (`#F2C200`).
+    - `?color=playstation`: outline = blue Cross, red Circle, pink Square, green Triangle.
+  - The pressed fill continues to use the same `var(--button-color, var(--accent))` (already correct in v1.2610.005) at 100% opacity (`--button-pressed-opacity: 1`), so ABXY colors appear in BOTH the outline (idle) AND the pressed fill.
+
+### Verification (Agent Browser end-to-end, via `file://`)
+
+- Page loads with zero console errors, zero page errors across all tested states.
+- **Default state** (no `?color=`, no `?viewmenu=`):
+  - Reach: `fill: rgb(242,242,242)` (Nimbus), `fill-rule: evenodd`, `fill-opacity: 1` ✓ (visible ring)
+  - Outline A: `rgb(242,242,242)` (Nimbus) ✓
+  - View icon: `display: none` ✓ (hidden by default)
+  - Overlay class: `controller-overlay controller-xbox` (no `show-viewmenu-icons`) ✓
+- **`?color=xbox`**:
+  - Outline A: `rgb(76, 175, 80)` (green `#4CAF50`) ✓
+  - Outline B: `rgb(229, 52, 42)` (red `#E5342A`) ✓
+  - Outline X: `rgb(14, 125, 192)` (blue `#0E7DC0`) ✓
+  - Outline Y: `rgb(242, 194, 0)` (amber `#F2C200`) ✓
+- **`?viewmenu=1`**:
+  - Overlay class: `controller-overlay show-viewmenu-icons controller-xbox` ✓
+  - View icon: `display: inline`, `fill: rgb(242,242,242)` (Nimbus) ✓
+  - Menu icon: `display: inline` ✓
+- **`?controller=arcade`** (regression):
+  - `joy_reach` path: `fill: rgb(242,242,242)`, `fill-rule: evenodd`, `fill-opacity: 1` ✓ (visible, no regression)
+- **VLM visual confirmation** of `/tmp/bubo-v006-color-xbox.png`: "botão A verde, B vermelho, X azul, Y amarelo" (ABXY outline colors visible); "analógicos têm um círculo maior de contorno visível" (reach visible); "VIEW e MENU estão vazios, sem ícones visíveis" (icons hidden by default) ✓
+- **VLM visual confirmation** of `/tmp/bubo-v006-color-viewmenu.png`: "Botão VIEW (esquerda): dois quadrados sobrepostos. Botão MENU (direita): três linhas horizontais (hambúrguer)" ✓ (icons visible with `?viewmenu=1`)
+
+### Audit
+
+- **CSS specificity war (reach rule vs button-fill rule)**: the button-fill rule `.controller-svg g[id] > :nth-child(1)` has specificity (0,0,3,1) — 1 class + 1 attribute + 1 pseudo-class + 1 element. The first attempt at the reach rule used `.controller-svg g[id$="_reach"] > path` with specificity (0,0,2,2) — 1 class + 1 attribute + 2 elements. The button-fill rule won (3 > 2 in the third specificity slot), inheriting `fill-opacity: 0` and `fill-rule: nonzero` into the reach path. Fix: switch to explicit ID selectors `g#left_joy_reach > path` (specificity 0,1,1,2) which beats the attribute selector (1 ID > 0 IDs in the second slot). This is a CSS specificity lesson: when a generic rule (attribute selector) conflicts with a specific rule (ID selector), the ID wins regardless of `!important` tie-breaking. Documented in the CSS comment block above the reach rule.
+
+- **`?viewmenu=` URL parameter design**: chose a separate parameter (`?viewmenu=1`) instead of extending the existing `?icons=` parameter. Rationale: `?icons=` controls TEXT labels for ABXY/LB/RB/LT/RT/L3/R3 (xbox/playstation/nintendo/none sets). VIEW/MENU icons are a separate concern (SVG-embedded shapes, not text). Coupling them would force the user to activate a text label set just to show the icons. Decoupling is cleaner. Accepts `1`, `true`, `yes`, `on` (case-insensitive) as truthy values.
+
+### ⚠️ Compliance
+
+- None. All 15 Never-Rules (AGENT.md §12) verified intact.
+- `PRIVATE_PLANS.md` confirmed gitignored and not staged.
+- No secrets in committed files. GitHub token not persisted (one-shot push URL).
+- Invariants §6.1, §6.3, §6.4, §6.5, §6.8 all preserved.
+
+### Sprint footer
+
+Sprint: v1.2610.006 — Bugfixes for v1.2610.005: VIEW/MENU icons opt-in via `?viewmenu=1`, JOY_REACH visible again (specificity fix), `?color=xbox` ABXY colors visible in outline (revert to `var(--button-color)`). Let's Play Up!
+
+---
+
 ## [v1.2610.005] — 2026-10-13
 
 ### Conversation excerpt (PT-BR, verbatim)

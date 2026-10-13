@@ -5,9 +5,9 @@
 [![License: Unlicense](https://img.shields.io/badge/licença-Unlicense-blue.svg)](LICENSE)
 [![Feito para OBS](https://img.shields.io/badge/feito%20para-OBS-9146FF.svg)](https://obsproject.com/)
 [![Idiomas: EN | PT-BR](https://img.shields.io/badge/idiomas-EN%20%7C%20PT--BR-success.svg)](#idiomas)
-![Versão](https://img.shields.io/badge/version-v1.2610.005-9146FF.svg)
+![Versão](https://img.shields.io/badge/version-v1.2610.006-9146FF.svg)
 
-**Versão:** `v1.2610.005` · **Esquema:** `v1.YYMM.XXX` (v1 = publicado · YYMM = mês da build · XXX = número da Sprint, reseta mensalmente) — veja [CHANGELOG.md](CHANGELOG.md).
+**Versão:** `v1.2610.006` · **Esquema:** `v1.YYMM.XXX` (v1 = publicado · YYMM = mês da build · XXX = número da Sprint, reseta mensalmente) — veja [CHANGELOG.md](CHANGELOG.md).
 
 **Idiomas:** [English](README.md) · Português (BR)
 
@@ -64,12 +64,13 @@ O projeto é dedicado ao **domínio público** ([The Unlicense](LICENSE)) — us
 | Parâmetro | Valores | Descrição |
 | --------- | ------- | ----------- |
 | `?controller=` | `xbox` (padrão) / `arcade` | Layout de controle a exibir |
-| `?color=` | `xbox` / `playstation` | Esquema de cores ABXY (padrão: tudo branco) |
-| `?icons=` | `xbox` (padrão) / `playstation` / `nintendo` / `none` | Set de labels de texto dos botões |
+| `?color=` | `xbox` / `playstation` | Esquema de cores ABXY — colorea TANTO o contorno QUANTO o preenchimento pressionado (padrão: tudo Nimbus/branco) |
+| `?icons=` | `xbox` (padrão) / `playstation` / `nintendo` / `none` | Set de labels de texto dos botões (ABXY, LB/RB, LT/RT, L3/R3) |
+| `?viewmenu=` | `1` / `true` / `yes` / `on` | Mostra os ícones VIEW/MENU (dois quadrados para View, hambúrguer para Menu). Ocultos por padrão. |
 | `?scale=X` | qualquer número positivo | Override manual de escala (ex.: `?scale=2` = 2× zoom) |
 | `?fit=` | `contain` (padrão) / `cover` | Como o overlay ajusta à source: contain = mantém aspect com padding; cover = preenche a source, pode clipar os lados |
 
-Combine livremente: `?controller=arcade&color=xbox&icons=playstation&scale=2`
+Combine livremente: `?controller=xbox&color=xbox&viewmenu=1&scale=2`
 
 ---
 

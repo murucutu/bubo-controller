@@ -454,3 +454,62 @@ Sprint grande, com 5 mudanças integradas no Xbox layout, todas derivadas do cha
 ### Decisões pendentes
 
 - Nenhuma. Todas as 6 decisões técnicas acima foram adotadas pelo agente como defaults não-invariantes e documentadas. Se o mantenedor preferir alguma alternativa, uma Sprint futura pode ajustar.
+
+---
+
+## v1.2610.006 — 2026-10-13 · Bugfixes pós-teste OBS (3 bugs reportados pelo mantenedor)
+
+### Resumo
+
+O mantenedor testou v1.2610.005 no OBS e reportou 3 bugs. Esta sprint é puramente de correção, sem novas features.
+
+### Bug 1 — Ícones VIEW/MENU apareciam por padrão
+
+**Sintoma**: os ícones (dois quadrados para View, hambúrguer para Menu) estavam visíveis sem qualquer argumento na URL.
+
+**Causa-raiz**: em v1.2610.005, os `<rect class="button-icon">` foram embutidos no SVG template e a CSS não tinha regra `display` — então eles renderizavam por padrão. O mantenedor queria opt-in.
+
+**Correção**: CSS `.button-icon { display: none; }` por padrão. Nova classe `.show-viewmenu-icons` no overlay unhides via `.controller-overlay.show-viewmenu-icons .controller-svg g[id] .button-icon { display: inline; }`. JS `applyViewMenuIcons()` lê `?viewmenu=` (aceita `1`, `true`, `yes`, `on`) e adiciona a classe ao overlay.
+
+**Decisão técnica**: parâmetro `?viewmenu=` separado (não estende `?icons=`). Razão: `?icons=` controla TEXT labels para ABXY/LB/RB/LT/RT/L3/R3. Ícones VIEW/MENU são conceito separado (formas SVG embutidas, não texto). Acoplar forçaria o usuário a ativar um set de labels de texto só para mostrar os ícones. Desacoplar é mais limpo.
+
+### Bug 2 — JOY_REACH invisível
+
+**Sintoma**: o círculo maior de contorno (reach boundary) ao redor de cada knob analógico não aparecia.
+
+**Causa-raiz (dupla)**:
+1. **CSS antigo incompatível com SVG novo**: o SVG novo (v1.2610.005) desenha cada reach group (`left_joy_reach`, `right_joy_reach`) com **UM** `<path>` (anel: outer + inner subpaths). O CSS de v1.2610.004 tinha `:nth-child(1) { fill: none }` que no SVG antigo (2 paths: disco sólido + anel) escondia o disco e mostrava o anel. No SVG novo, o único path É `:nth-child(1)`, então `fill: none` o escondia inteiramente.
+2. **Guerra de especificidade CSS**: mesmo removendo `fill: none`, a regra de button-fill `.controller-svg g[id] > :nth-child(1) { fill-opacity: var(--button-fill-opacity); fill-rule: nonzero !important; }` (especificidade 0,0,3,1) vencia sobre a regra de reach `.controller-svg g[id$="_reach"] > path` (especificidade 0,0,2,2). O reach path herdava `fill-opacity: 0` (button fill idle) e `fill-rule: nonzero` (disco sólido em vez de anel) — invisível.
+
+**Correção**: regra de reach reescrita com **IDs explícitos**: `g#left_joy_reach > path, g#right_joy_reach > path, g#joy_reach > path`. IDs têm especificidade (0,1,0,0) que vence o seletor de atributo (0,0,3,1) no segundo slot. Adicionado `!important` em `fill-opacity: 1` e `fill-rule: evenodd`. Reach agora renderiza como anel visível (Nimbus, 100% opaco) ao redor de cada knob.
+
+**Lições de especificidade CSS**: quando uma regra genérica (seletor de atributo `g[id$="_reach"]`) conflita com uma regra específica (seletor de ID `g#left_joy_reach`), o ID vence independente de `!important` tie-breaking. Sempre que uma regra "deve sempre vencer", use ID explícito — não confie em `!important` sozinho contra seletores genéricos.
+
+### Bug 3 — `?color=xbox` não coloria o contorno
+
+**Sintoma**: com `?color=xbox` ativo, os contornos dos botões ABXY estavam todos brancos (Nimbus). As cores (verde/vermelho/azul/amarelo) não apareciam.
+
+**Causa-raiz**: em v1.2610.005, a CSS do outline foi mudada para `fill: var(--accent) !important` (sempre Nimbus), quebrando o comportamento de v1.2610.004 onde o outline usava `var(--button-color)` (que resolve para `--color-a/b/x/y` para ABXY buttons, com fallback `--accent` = Nimbus quando nenhum `?color=` está ativo).
+
+**Correção**: CSS do outline revertida para `fill: var(--button-color, var(--accent)) !important`. Agora:
+- Default (sem `?color=`): outline = Nimbus (porque `--color-a/b/x/y` default = `var(--accent)` = Nimbus).
+- `?color=xbox`: outline = verde A, vermelho B, azul X, amarelo Y.
+- `?color=playstation`: outline = azul Cross, vermelho Circle, rosa Square, verde Triangle.
+- O pressed fill continua usando o mesmo `var(--button-color, var(--accent))` (já correto em v1.2610.005) a 100% opacidade (`--button-pressed-opacity: 1`), então as cores ABXY aparecem TANTO no contorno (idle) QUANTO no preenchimento (pressed).
+
+**Confirmação do mantenedor**: "O contorno poderia continuar colorido, como era e a cor de preenchimento deve ser 100% opaca, não deve ter transparência." A correção atende ambos: contorno colorido + pressed fill 100% opaco.
+
+### Verificação Agent Browser (via file://)
+
+Servidor HTTP localhost morria quando agent-browser abria sessão (provável issue de lifecycle do processo). Solução: abrir via `file:///home/z/my-project/repos/bubo-controller/index.html` (mesmo protocolo que o OBS usa para Browser Source local). Funcionou estavelmente.
+
+- **Default state**: reach `rgb(242,242,242)` (Nimbus) com `fill-rule: evenodd`, `fill-opacity: 1` ✓; outline A `rgb(242,242,242)` (Nimbus) ✓; view icon `display: none` ✓; overlay class `controller-overlay controller-xbox` (sem `show-viewmenu-icons`) ✓.
+- **`?color=xbox`**: outline A `rgb(76,175,80)` (verde), B `rgb(229,52,42)` (vermelho), X `rgb(14,125,192)` (azul), Y `rgb(242,194,0)` (amarelo) ✓.
+- **`?viewmenu=1`**: overlay class `controller-overlay show-viewmenu-icons controller-xbox` ✓; view icon `display: inline`, `fill: rgb(242,242,242)` (Nimbus) ✓; menu icon `display: inline` ✓.
+- **`?controller=arcade`** (regressão): `joy_reach` path `fill: rgb(242,242,242)`, `fill-rule: evenodd`, `fill-opacity: 1` ✓ (visível, sem regressão).
+- **VLM confirmação visual** de `/tmp/bubo-v006-color-xbox.png`: "botão A verde, B vermelho, X azul, Y amarelo" (cores ABXY no contorno); "analógicos têm um círculo maior de contorno visível" (reach visível); "VIEW e MENU estão vazios, sem ícones visíveis" (ícones ocultos por padrão) ✓.
+- **VLM confirmação visual** de `/tmp/bubo-v006-color-viewmenu.png`: "Botão VIEW (esquerda): dois quadrados sobrepostos. Botão MENU (direita): três linhas horizontais (hambúrguer)" ✓ (ícones visíveis com `?viewmenu=1`).
+
+### Limitação honesta declarada
+
+- **OBS test matrix (AGENT.md §7.2) NÃO executado pelo agente** — sandbox sem gamepad/OBS. O mantenedor já testou v1.2610.005 no OBS (foi como descobriu os bugs); esta sprint corrige os bugs reportados. O mantenedor deve re-testar v1.2610.006 no OBS (pull + reload da Browser Source) para confirmar que os 3 fixes resolvem no ambiente real.

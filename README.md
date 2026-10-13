@@ -5,9 +5,9 @@
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](LICENSE)
 [![Made for OBS](https://img.shields.io/badge/made%20for-OBS-9146FF.svg)](https://obsproject.com/)
 [![Language: PT-BR](https://img.shields.io/badge/lang-EN%20%7C%20PT--BR-success.svg)](#languages)
-![Version](https://img.shields.io/badge/version-v1.2610.005-9146FF.svg)
+![Version](https://img.shields.io/badge/version-v1.2610.006-9146FF.svg)
 
-**Version:** `v1.2610.005` · **Scheme:** `v1.YYMM.XXX` (v1 = published · YYMM = build month · XXX = sprint number, resets monthly) — see [CHANGELOG.md](CHANGELOG.md).
+**Version:** `v1.2610.006` · **Scheme:** `v1.YYMM.XXX` (v1 = published · YYMM = build month · XXX = sprint number, resets monthly) — see [CHANGELOG.md](CHANGELOG.md).
 
 **Languages:** English · [Português (BR)](README.pt.md)
 
@@ -64,12 +64,13 @@ The project is dedicated to the **public domain** ([The Unlicense](LICENSE)) —
 | Parameter | Values | Description |
 | --------- | ------ | ----------- |
 | `?controller=` | `xbox` (default) / `arcade` | Controller layout to display |
-| `?color=` | `xbox` / `playstation` | ABXY color scheme (default: all white) |
-| `?icons=` | `xbox` (default) / `playstation` / `nintendo` / `none` | Button label text set |
+| `?color=` | `xbox` / `playstation` | ABXY color scheme — colors BOTH the outline AND the pressed fill (default: all Nimbus/white) |
+| `?icons=` | `xbox` (default) / `playstation` / `nintendo` / `none` | Button label text set (ABXY, LB/RB, LT/RT, L3/R3) |
+| `?viewmenu=` | `1` / `true` / `yes` / `on` | Show the VIEW/MENU icons (two-squares for View, hamburger for Menu). Hidden by default. |
 | `?scale=X` | any positive number | Manual scale override (e.g. `?scale=2` = 2× zoom) |
 | `?fit=` | `contain` (default) / `cover` | How overlay fits the source: contain = preserve aspect with padding; cover = fill source, may clip sides |
 
-Combine freely: `?controller=arcade&color=xbox&icons=playstation&scale=2`
+Combine freely: `?controller=xbox&color=xbox&viewmenu=1&scale=2`
 
 ---
 
