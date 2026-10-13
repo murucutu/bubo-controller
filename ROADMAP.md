@@ -38,7 +38,7 @@ This document lists planned variants, future improvements, and how to contribute
 | Sprite pack guide (Phase 5 docs)    | ✅ docs | [LABEL_PACKS_GUIDE.md](LABEL_PACKS_GUIDE.md) + `masks/labels/sprite_example.svg` |
 | Sprite pack runtime (Phase 5 impl) | 🟡 planned | Model ready, `<use>` HTML integration pending              |
 | Inline SVG icons for View/Menu (Phase 3) | ✅ v1.2610.005 | Generic UI metaphors (two-squares for View, hamburger for Menu) embedded as `<rect class="button-icon">` in the SVG template — invariant §6.4 (no brand art) preserved. |
-| "No controller connected" hint        | ✅ v1.2610.005 | Bilingual (`<html lang="pt">` → "Conecte um controle", default → "Connect a controller"). Shows after 5s of no gamepad, hides when one connects, never reappears after first connection. System font weight 900 fallback for Sofia Sans XC Black (invariant §6.3 preserved). |
+| "No controller connected" hint        | ✅ v1.2610.008 | Bilingual (`<html lang="pt">` → "Conecte um controle", default → "Connect a controller"). Shows after 5s of no gamepad, hides when one connects, never reappears after first connection. **Positioned in the bottom 27px gap** (Y=189→216 of the 216px overlay) — text in an 18px-tall band centered with 4.5px above and below (4.5+18+4.5=27), no longer overlaps the controller body. System font weight 900 fallback for Sofia Sans XC Black (invariant §6.3 preserved). |
 | Doc/code consistency (Track C cleanup) | ✅ resolved in v1.2610.002 | `masks/README.md` and `DESIGN_GUIDE.md` rewritten for Track C; `docs/AUDIT.md` and `docs/AUDIT_PLAN.md` received historical-note headers. |
 
 ---

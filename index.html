@@ -70,6 +70,9 @@
             --hint-size: 14px;
             --hint-delay-ms: 5000;
             --hint-transition-ms: 200;
+            /* v1.2610.008 — bottom gap positioning (27px reserved zone: 4.5 + 18 + 4.5 = 27) */
+            --hint-height: 18px;
+            --hint-bottom-gap: 4.5px;
             /* ═══ v1.2610.005 — Trigger wave clip radius (viewBox units) ═══ */
             --trigger-clip-radius: 9px;
         }
@@ -337,13 +340,23 @@
         }
 
         /* ═══ v1.2610.005 — CONTROLLER HINT (no gamepad connected) ═══
+           v1.2610.008 — repositioned to the bottom gap (27px reserved zone).
            Subtle text shown after --hint-delay-ms of no gamepad, hidden when
            a gamepad connects. Hidden permanently after first connection (does
            not reappear during a stream to avoid noise). Styled per maintainer
            spec: simple text, weight 900 (Sofia Sans XC Black not available
-           offline — system fallback per invariant §6.3; see AUDIT). */
+           offline — system fallback per invariant §6.3; see AUDIT).
+           v1.2610.008: positioned in the bottom 27px gap (y=189→216 of the
+           216px-tall overlay) — the controller's bottom margin. The text
+           sits in an 18px-tall band centered in the gap, leaving 4.5px above
+           and 4.5px below (4.5 + 18 + 4.5 = 27). This avoids the hint
+           overlapping the controller body (previously it appeared in the
+           middle of the controller, over the D-pad). */
         .controller-hint {
-            position: absolute; inset: 0;
+            position: absolute;
+            left: 0; right: 0;
+            bottom: var(--hint-bottom-gap, 4.5px);
+            height: var(--hint-height, 18px);
             display: flex; align-items: center; justify-content: center;
             pointer-events: none; z-index: 20;
             color: var(--hint-color);
@@ -353,6 +366,7 @@
             font-size: var(--hint-size);
             letter-spacing: 0.05em;
             text-align: center;
+            line-height: 1;
             transition: opacity calc(var(--hint-transition-ms) * 1ms) ease-out;
         }
         .controller-hint.visible { opacity: var(--hint-opacity); }
