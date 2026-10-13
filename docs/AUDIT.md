@@ -513,3 +513,94 @@ Servidor HTTP localhost morria quando agent-browser abria sessão (provável iss
 ### Limitação honesta declarada
 
 - **OBS test matrix (AGENT.md §7.2) NÃO executado pelo agente** — sandbox sem gamepad/OBS. O mantenedor já testou v1.2610.005 no OBS (foi como descobriu os bugs); esta sprint corrige os bugs reportados. O mantenedor deve re-testar v1.2610.006 no OBS (pull + reload da Browser Source) para confirmar que os 3 fixes resolvem no ambiente real.
+
+---
+
+## v1.2610.007 — 2026-10-13 · Ajuste de posicionamento dos botões do topo
+
+### Resumo
+
+Sprint simples, puramente de atualização de SVG com ajuste de posicionamento dos 6 botões do topo (VIEW, MENU, LB, LT, RB, RT). Sem mudanças em JS ou CSS — só substituição do arquivo SVG e do template inline.
+
+### Mudança geométrica
+
+O mantenedor enviou novo `xbox.svg` com os 6 botões do topo deslocados +18 unidades de viewBox para baixo (Y translate `9` → `26.999982`). Isso adiciona respiro entre esses botões e a borda superior arredondada do controle, endereçando aperto visual que o mantenedor observou em teste no OBS.
+
+**Antes (v1.2610.005/006)**:
+- view/menu/lb/lt/rb/rt todos com Y translate = 9
+- Centers calculados (via getCTM): todos em cy=27
+
+**Depois (v1.2610.007)**:
+- view/menu/lb/lt/rb/rt todos com Y translate = 26.999982
+- Centers calculados (via getCTM): todos em cy=45
+
+**Não mudou**: ABXY (a/b/x/y), D-pad (up/down/left/right), analógicos (left_joy/right_joy + reach groups). Todos mantêm os mesmos transforms da v1.2610.005.
+
+### Limpeza cosmética nos transforms do D-pad
+
+O SVG novo normalizou `-0` para `0` nas matrizes dos grupos `down` e `left`:
+- `down`: `matrix(-0.222222,0,-0,-0.333333,301.111111,207)` → `matrix(-0.222222,0,0,-0.333333,301.111111,207)`
+- `left`: `matrix(-0,-0.222222,0.333333,-0,176,188.111111)` → `matrix(0,-0.222222,0.333333,0,176,188.111111)`
+
+Matematicamente equivalente (`-0 === 0` em IEEE 754). Nenhuma mudança visual.
+
+### Re-embutição dos ícones VIEW/MENU
+
+O SVG do mantenedor vem com apenas os anéis (paths) dos botões — não inclui os rects `.button-icon` que adicionei em v1.2610.005 para os ícones de VIEW (dois quadrados) e MENU (hambúrguer). Política do agente: **re-embutir os rects em cada atualização de SVG do mantenedor** para que os ícones sobrevivam entre refreshes de SVG.
+
+**Por que não estão no SVG original do mantenedor**: o mantenedor exporta as formas geométricas "físicas" do controle do Affinity. Os ícones (metáforas UI: dois-quadrados, hambúrguer) são uma camada UX de runtime que o agente adiciona — não são parte da geometria "física" do controle. Esta separação está documentada em `masks/controllers/README.md` (o SVG é source-of-truth da geometria do controle; ícones são adição de runtime gerenciada pelo agente).
+
+**Como os rects se movem automaticamente**: os rects estão em coords path-local (0-320 no X, 0-54 no Y, que é o espaço do path). Eles são filhos do `<g>` que tem o transform. Quando o `<g>` se move, os rects se movem junto automaticamente — não preciso atualizar as coords dos rects manualmente. Isso é a vantagem de manter ícones em path-local coords em vez de viewBox coords.
+
+### Verificação Agent Browser (via file://)
+
+Servidor HTTP localhost tinha morrido em sprints anteriores ao rodar agent-browser; usei `file:///home/z/my-project/repos/bubo-controller/index.html` (mesma forma que o OBS abre Browser Source local). Funcionou estavelmente.
+
+**Posicionamentos (via `getBBox()` + `getCTM()` matrix transform)**:
+
+| Botão | Center (x, y) v1.2610.005 | Center (x, y) v1.2610.007 | Mudança |
+|---|---|---|---|
+| view | (302, 27) | (302, 45) | +18 Y ✓ |
+| menu | (338, 27) | (338, 45) | +18 Y ✓ |
+| lb | (230, 27) | (230, 45) | +18 Y ✓ |
+| lt | (104, 27) | (104, 45) | +18 Y ✓ |
+| rb | (410, 27) | (410, 45) | +18 Y ✓ |
+| rt | (536, 27) | (536, 45) | +18 Y ✓ |
+| up | (248, 108) | (248, 108) | unchanged ✓ |
+| down | (248, 162) | (248, 162) | unchanged ✓ |
+| left | (221, 135) | (221, 135) | unchanged ✓ |
+| right | (275, 135) | (275, 135) | unchanged ✓ |
+| a | (392, 171) | (392, 171) | unchanged ✓ |
+| b | (428, 135) | (428, 135) | unchanged ✓ |
+| x | (356, 135) | (356, 135) | unchanged ✓ |
+| y | (392, 99) | (392, 99) | unchanged ✓ |
+| left_joy | (104, 135) | (104, 135) | unchanged ✓ |
+| right_joy | (536, 135) | (536, 135) | unchanged ✓ |
+
+**Regressões**:
+- `?color=xbox`: outline A `rgb(76,175,80)` (verde) ✓ (v1.2610.006 fix preservado)
+- `?viewmenu=1`: overlay class `controller-overlay show-viewmenu-icons controller-xbox`, view icon `display: inline` ✓ (v1.2610.006 fix preservado)
+- Zero erros no console ✓
+
+**VLM confirmação visual** de `/tmp/bubo-v007-default.png`:
+- "os 6 elementos do topo estão alinhados em uma linha horizontal perto da parte superior do controle"
+- "ABXY e analógicos estão mais abaixo, na região central e inferior"
+- "há um espaço visível (margem/respiro) entre a linha dos botões superiores e a borda superior arredondada preta do controle. Eles não estão colados na borda."
+
+✓ Match exato com a intenção do mantenedor.
+
+### Decisões técnicas não-invariantes
+
+Nenhuma nova decisão. A sprint seguiu o padrão estabelecido em v1.2610.005/006:
+- IDs lowercase (mantenedor já seguiu a convenção desta vez)
+- Ícones embutidos em path-local coords (re-embutidos automaticamente)
+- CSS e JS unchanged (regras de button-fill/outline/reach já abrangem o novo SVG)
+- Verificação via `file://` (mais estável que HTTP localhost para agent-browser)
+
+### Limitação honesta
+
+OBS test matrix (AGENT.md §7.2) não executado pelo agente (sandbox sem gamepad/OBS). Mantenedor deve re-testar v1.2610.007 no OBS (pull + reload da Browser Source) para confirmar o novo posicionamento no ambiente real.
+
+### Decisões pendentes
+
+Nenhuma.

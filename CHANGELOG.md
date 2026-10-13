@@ -11,6 +11,64 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Conversation
 
 ---
 
+## [v1.2610.007] — 2026-10-13
+
+### Conversation excerpt (PT-BR, verbatim)
+
+> Segue novo SVG do controle de Xbox com ajustes de posicionamento. Atualize para usarmos essa versão.
+
+### Changed
+
+- **New Xbox SVG with adjusted top-button positioning**: `masks/controllers/xbox.svg` and the inline `<template id="svg-xbox">` in `index.html` replaced with the maintainer's new Affinity Designer export. The only geometric change is the **Y-axis translate** of the 6 top buttons (VIEW, MENU, LB, LT, RB, RT): all moved from `Y=9` to `Y=26.999982` (≈27), a downward shift of 18 viewBox units. This adds breathing room between these buttons and the controller's top rounded border, addressing the visual tightness the maintainer observed.
+- **ABXY buttons, D-pad, and analog sticks unchanged** — the maintainer's new SVG keeps their transforms identical to v1.2610.005. Verified via Agent Browser: A/B/X/Y centers at `(392,171)/(428,135)/(356,135)/(392,99)` (identical to v1.2610.005); D-pad up/down/left/right centers at `(248,108)/(248,162)/(221,135)/(275,135)` (identical); analog sticks at `(104,135)/(536,135)` (identical).
+- **Top buttons new centers** (verified via Agent Browser):
+  - VIEW: `(302, 45)` (was `(302, 27)` in v1.2610.005)
+  - MENU: `(338, 45)` (was `(338, 27)`)
+  - LB: `(230, 45)` (was `(230, 27)`)
+  - LT: `(104, 45)` (was `(104, 27)`)
+  - RB: `(410, 45)` (was `(410, 27)`)
+  - RT: `(536, 45)` (was `(536, 27)`)
+  - All shifted exactly +18 in Y (consistent with the transform change `9 → 27`).
+- **D-pad matrix cleanup** (cosmetic, no visual change): the `down` and `left` groups had `-0` in some matrix entries (e.g., `matrix(-0.222222,0,-0,-0.333333,...)`); the new SVG normalizes these to `0` (e.g., `matrix(-0.222222,0,0,-0.333333,...)`). Mathematically equivalent (`-0 === 0` in IEEE 754); no visual change.
+
+### Added
+
+- **`<rect class="button-icon">` re-embedded in the new SVG** for VIEW and MENU. The maintainer's exported SVG ships the rings only (no icon rects); the agent re-added the two-overlapping-rounded-rectangles (View) and three-horizontal-lines (Menu) at the pill centers, in path-local coords. These remain **hidden by default** (per v1.2610.006) and only appear with `?viewmenu=1`. The icons are positioned in path-local coords so they move WITH the parent `<g>` transform — when the maintainer shifted the `view`/`menu` groups down by 18 units, the icons automatically shifted too (no manual icon position update needed).
+
+### Audit
+
+- **Why the icons aren't in the maintainer's SVG**: the maintainer exports the raw geometric shapes from Affinity. The icons (two-squares, hamburger) are a runtime UX layer the agent added in v1.2610.005 — they are not part of the controller's "physical" geometry, they are visual indicators. The agent's policy: re-embed them on every SVG update so they survive across maintainer SVG refreshes. This is documented in `masks/controllers/README.md` (the SVG is the source-of-truth for the controller's geometry; icons are a runtime addition managed by the agent).
+
+- **No JS changes needed**: the maintainer's new SVG uses the same lowercase IDs (`view`, `menu`, `lb`, `lt`, `rb`, `rt`, `up`, `down`, `left`, `right`, `a`, `b`, `x`, `y`, `left_joy`, `left_joy_reach`, `right_joy`, `right_joy_reach`) as v1.2610.005. The existing `BUTTON_MAP`, `collectElements()`, and `cacheKnobData()` JS continue to find every element without changes. The L3/R3 label aliases (added in v1.2610.005) still work because the new SVG keeps `<g id="left_joy">` and `<g id="right_joy">` (not `<g id="l3">`/`<g id="r3">`).
+
+- **CSS unchanged**: no CSS rules needed updating. The button-fill and outline rules use `var(--button-color, var(--accent))` which automatically adapt to whatever colors the URL params activate. The reach rules (added in v1.2610.006 with explicit IDs `g#left_joy_reach > path` etc.) still match the new SVG's reach groups (which kept the same IDs).
+
+### Verification (Agent Browser end-to-end, via `file://`)
+
+- Page loads with zero console errors, zero page errors.
+- **Top button Y centers** (verified via `getBBox()` + `getCTM()` matrix transform): all 6 at `cy=45` ✓ (was `cy=27` in v1.2610.005; expected shift of +18 units).
+- **ABXY and D-pad and analog stick centers**: identical to v1.2610.005 ✓ (no unintended movement).
+- **`?color=xbox` regression**: outline A = `rgb(76,175,80)` (green) ✓ (v1.2610.006 fix preserved).
+- **`?viewmenu=1` regression**: overlay class `controller-overlay show-viewmenu-icons controller-xbox`, view icon `display: inline` ✓ (v1.2610.006 fix preserved).
+- **VLM visual confirmation** of `/tmp/bubo-v007-default.png`: "os 6 elementos do topo estão alinhados em uma linha horizontal perto da parte superior do controle"; "ABXY e analógicos estão mais abaixo, na região central e inferior"; "há um espaço visível (margem/respiro) entre a linha dos botões superiores e a borda superior arredondada preta do controle. Eles não estão colados na borda." ✓
+
+### Limitation honestly declared
+
+- **OBS test matrix (AGENT.md §7.2) NOT executed by the agent** — sandbox has no real gamepad and no OBS Studio. The agent verified the SVG rendering, positioning, regressions, and visual layout via Agent Browser + VLM. The maintainer must re-test v1.2610.007 in OBS (pull + reload Browser Source) to confirm the new positioning looks right in the real streaming environment.
+
+### ⚠️ Compliance
+
+- None. All 15 Never-Rules (AGENT.md §12) verified intact.
+- `PRIVATE_PLANS.md` confirmed gitignored and not staged.
+- No secrets in committed files. GitHub token not persisted (one-shot push URL).
+- Invariants §6.1, §6.3, §6.4, §6.5, §6.8 all preserved.
+
+### Sprint footer
+
+Sprint: v1.2610.007 — Xbox SVG positioning adjustment: 6 top buttons (VIEW/MENU/LB/LT/RB/RT) shifted +18 viewBox units down for breathing room from the top border. ABXY/D-pad/sticks unchanged. Icons re-embedded (still opt-in via `?viewmenu=1`). No JS/CSS changes. Let's Play Up!
+
+---
+
 ## [v1.2610.006] — 2026-10-13
 
 ### Conversation excerpt (PT-BR, verbatim)
