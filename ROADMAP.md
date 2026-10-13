@@ -19,25 +19,26 @@ This document lists planned variants, future improvements, and how to contribute
 
 | Component                          | Status | Notes                                                        |
 | ---------------------------------- | ------ | ------------------------------------------------------------ |
-| Xbox Series layout (640×216 canvas) | ✅ v1.2610.004 | New model: 1/6 width × 10% height of 3840×2160 base. `masks/controllers/xbox.svg` (Affinity-exported, `viewBox="0 0 640 216"`). Inlined as `<template id="svg-xbox">`. |
+| Xbox Series layout (640×216 canvas) | ✅ v1.2610.005 | New model with corrected L3/R3 knob (2/3 of reach). `masks/controllers/xbox.svg` (Affinity-exported, `viewBox="0 0 640 216"`, IDs lowercase). Inlined as `<template id="svg-xbox">`. Outline-only buttons (Nimbus) in idle; full-color fill (Nimbus or ABXY color) when pressed. Background Umbral at 95% opacity. |
 | Arcade fightstick layout           | 🟡 pending new SVG | Current `arcade.svg` still uses 768×324 (legacy). Maintainer will deliver the new 640×216 arcade SVG in a future Sprint. Until then `?controller=arcade` works but letterboxes inside the 640×216 overlay. |
-| Overlay canvas 640×216 (~2.96:1)   | ✅ v1.2610.004 | `--overlay-width: 640px`, `--overlay-height: 216px`. OBS source recommendations updated. |
-| Nimbus/Umbral default palette       | ✅ v1.2610.004 | `--nimbus: #F2F2F2` (outlines), `--umbral: #0D0D0D` (fills). `--accent` and `--color-bg` now alias these. |
-| Per-button colors                   | ✅      | `--color-a`, `--color-b`, …, `--color-menu`                  |
-| L3/R3 special base (Nimbus 50%)     | ✅ v1.2610.004 | Knob fill is `--nimbus` at 50% opacity as the stick-click indicator; jumps to 95% when L3/R3 pressed. L3/R3 keep Nimbus even under `?color=xbox` (do not follow ABXY scheme). |
-| Opacity system (bg 20% / button 95%) | ✅ v1.2610.004 | `--bg-opacity: 0.2`, `--button-fill-opacity: 0.95`, `--button-pressed-opacity: 0.95`. Pressed fill color switches from Umbral to Nimbus (or active `?color=` scheme). |
-| LT/RT trigger wave effect (Xbox)    | ✅ preserved | The `<canvas>`-based pressure wave is preserved in v1.2610.004 (no change to `setupTriggerOverlays()` / `drawTriggerGraph()`). |
+| Overlay canvas 640×216 (~2.96:1)   | ✅ v1.2610.005 | `--overlay-width: 640px`, `--overlay-height: 216px`. OBS source recommendations updated. |
+| Nimbus/Umbral default palette       | ✅ v1.2610.005 | `--nimbus: #F2F2F2` (outlines), `--umbral: #0D0D0D` (background + pressed fill). `--accent` and `--color-bg` alias these. |
+| Per-button colors                   | ✅ v1.2610.005 | `--color-a/b/x/y/lb/rb/lt/rt/view/menu` and `--color-l3/r3` (mapped to `g#left_joy/right_joy`). Colors only affect the PRESSED FILL — outline is always Nimbus. |
+| L3/R3 special base (Nimbus 50% idle, 100% pressed) | ✅ v1.2610.005 | Knob fill is `--nimbus` at 50% opacity as the stick-click indicator; jumps to 100% (full opaque) when L3/R3 pressed. L3/R3 keep Nimbus even under `?color=xbox` (do not follow ABXY scheme). |
+| Opacity system (bg 95% / button 0% idle / 100% pressed) | ✅ v1.2610.005 | `--bg-opacity: 0.95`, `--button-fill-opacity: 0` (idle outline-only), `--button-pressed-opacity: 1` (full solid). Overlay opacity = 1.0 (was 0.85). |
+| LT/RT trigger wave effect (Xbox, masked) | ✅ v1.2610.005 | The `<canvas>`-based pressure wave is masked to the trigger contour via CSS `clip-path: inset(0 round 9px)` — no longer leaks outside the trigger outline. |
 | Auto-scale                          | ✅      | JS reads viewport, applies `transform: scale(var(--scale))` |
 | Manual scale override (URL)         | ✅      | `?scale=2.0` in URL                                          |
 | Fit modes (URL)                     | ✅      | `?fit=contain` (default) \| `?fit=cover` (may clip LT/RT)   |
-| Debug mode                          | ✅      | Double-click on the overlay                                   |
-| Text labels (Phase 1)               | ✅      | `--label-*` in `:root`, `::after` per button, pressed state with inverted color |
+| Debug mode                          | ✅ v1.2610.005 | Double-click on the overlay. Also force-shows the "no controller connected" hint for visual QA. |
+| Text labels (Phase 1)               | ✅ v1.2610.005 | `--label-*` in `:root`, `<text>` per button, pressed state with inverted color. L3/R3 labels now render at the knob centers (alias `l3` → `left_joy`, `r3` → `right_joy`). |
 | Icon sets (Phase 2)                 | ✅      | `?icons=xbox\|playstation\|nintendo\|none` in URL            |
 | Arcade stick ghost-glow trail        | ✅      | `--stick-trail-*` variables, 1/3 knob size, analog + D-pad capture |
-| ABXY color schemes via URL           | ✅      | `?color=xbox\|playstation`                                   |
+| ABXY color schemes via URL           | ✅ v1.2610.005 | `?color=xbox\|playstation` — affects only the pressed fill, not the outline. |
 | Sprite pack guide (Phase 5 docs)    | ✅ docs | [LABEL_PACKS_GUIDE.md](LABEL_PACKS_GUIDE.md) + `masks/labels/sprite_example.svg` |
 | Sprite pack runtime (Phase 5 impl) | 🟡 planned | Model ready, `<use>` HTML integration pending              |
-| Inline SVG icons for View/Menu (Phase 3) | 🟡 planned | Inline SVG in HTML, replacing empty `--label-view`           |
+| Inline SVG icons for View/Menu (Phase 3) | ✅ v1.2610.005 | Generic UI metaphors (two-squares for View, hamburger for Menu) embedded as `<rect class="button-icon">` in the SVG template — invariant §6.4 (no brand art) preserved. |
+| "No controller connected" hint        | ✅ v1.2610.005 | Bilingual (`<html lang="pt">` → "Conecte um controle", default → "Connect a controller"). Shows after 5s of no gamepad, hides when one connects, never reappears after first connection. System font weight 900 fallback for Sofia Sans XC Black (invariant §6.3 preserved). |
 | Doc/code consistency (Track C cleanup) | ✅ resolved in v1.2610.002 | `masks/README.md` and `DESIGN_GUIDE.md` rewritten for Track C; `docs/AUDIT.md` and `docs/AUDIT_PLAN.md` received historical-note headers. |
 
 ---
@@ -72,9 +73,9 @@ These are infrastructure improvements that benefit any future variant:
 | Multi-gamepad support                  | Medium    | Low        | `?gamepad=2` URL param selects index                   |
 | Auto light/dark theme                  | Low       | Low        | `prefers-color-scheme` in CUSTOMIZATION_GUIDE.md       |
 | `devicePixelRatio` on trigger canvas   | Low       | Low        | Crisp rendering on retina/4K                           |
-| `?color=` URL override                 | Low       | Low        | Live `--accent` override                                |
+| `?color=` URL override                 | Low       | Low        | Live `--accent` override (already partially working via `?color=` scheme) |
 | `?opacity=` URL override               | Low       | Low        | Adjust opacity without editing CSS                       |
-| "No controller connected" state        | Medium    | Medium     | Subtle hint to plug in a controller                     |
+| Sofia Sans XC Black font embedding     | Low       | Low        | Embed the font file as base64 in CSS for exact visual match on the hint (currently system font weight 900 fallback). Maintainer to provide the .ttf in a future Sprint. |
 | Visual automated tests (Playwright)   | Low       | High       | Verify layout, colors, reactions                        |
 | Sprite pack runtime (Phase 5)          | Medium    | Medium     | See [LABEL_PACKS_GUIDE.md](LABEL_PACKS_GUIDE.md) — model ready, integration pending |
 
