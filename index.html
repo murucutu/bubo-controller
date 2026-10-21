@@ -1045,10 +1045,16 @@
                             this.overlay.appendChild(cloneSvg);
                             this.joyCloneSvg = cloneSvg;
                             this.joyCloneKnob = knobClone;
-                            /* Guardar o transform original do knob (sem offset
-                               adicional — o viewBox do mini-SVG já cuida do
-                               posicionamento). */
-                            this.joyCloneOriginalTransform = knobClone.getAttribute('transform') || '';
+                            /* Guardar o transform original do knob + compensar
+                               o Y_OFFSET -266 do wrapper externo do SVG original.
+                               O knob original está dentro de <g transform="matrix(1,0,0,1,0,-266)">
+                               no SVG original. O clone perdeu esse wrapper, então
+                               precisa de translate(0, -266) ANTES do transform original
+                               pra alinhar com o viewBox do mini-SVG (que está em coords
+                               do overlay 0..216, não 266..482). */
+                            const baseTransform = knobClone.getAttribute('transform') || '';
+                            this.joyCloneOriginalTransform = `translate(0 -266) ${baseTransform}`;
+                            knobClone.setAttribute('transform', this.joyCloneOriginalTransform);
                         }
                     }
                     this.stickCanvasCenter = { x: canvas.width / 2, y: canvas.height / 2 };
