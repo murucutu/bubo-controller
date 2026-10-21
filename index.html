@@ -576,20 +576,20 @@
                 Official button colors (verified).
                 Xbox: A=green, B=red, X=blue, Y=amber.
                 PlayStation: Cross=blue, Circle=red, Square=pink, Triangle=green.
-                Trail gradient (newest→oldest): ABXY order for Xbox, Cross-Circle-Square-Triangle for PS.
+                Sprint 007: Trail gradient SEMPRE Nox→Sol (paleta da marca),
+                independente de ?color. Só os botões ABXY mudam de cor.
             */
             const COLOR_SCHEMES = Object.freeze({
+                /* Sprint 007: trail SEMPRE usa Nox/Sol (paleta da marca), mesmo
+                   com ?color=xbox ou ?color=playstation. Trail-color-* REMOVIDO
+                   dos schemes — só as cores dos BOTÕES ABXY mudam. */
                 xbox: {
                     '--color-a': '#4CAF50', '--color-b': '#E5342A',
-                    '--color-x': '#0E7DC0', '--color-y': '#F2C200',
-                    '--trail-color-1': '#4CAF50', '--trail-color-2': '#E5342A',
-                    '--trail-color-3': '#0E7DC0', '--trail-color-4': '#F2C200'
+                    '--color-x': '#0E7DC0', '--color-y': '#F2C200'
                 },
                 playstation: {
                     '--color-a': '#2E6DB4', '--color-b': '#E5342A',
-                    '--color-x': '#FF69F8', '--color-y': '#3EE3A1',
-                    '--trail-color-1': '#2E6DB4', '--trail-color-2': '#E5342A',
-                    '--trail-color-3': '#FF69F8', '--trail-color-4': '#3EE3A1'
+                    '--color-x': '#FF69F8', '--color-y': '#3EE3A1'
                 }
             });
             function applyColorScheme() {
@@ -1000,20 +1000,27 @@
                     ];
                     /* Clonar o knob do joy. O clone é um <svg> separado que
                        contém só o knob, posicionado absolutamente por cima
-                       do canvas. O updateKnob vai animar o original; o
-                       updateKnob (com hook abaixo) espelha o transform no clone. */
+                       do canvas. O updateKnob anima o original; o hook em
+                       updateKnob espelha o transform no clone.
+                       
+                       Sprint 007 v2 fix: o knob estava offset pra direita porque
+                       getBBox() falhava em elemento com visibility:hidden,
+                       retornando {} (vazio). Agora usamos getGroupBBox (que
+                       usa CTM e funciona mesmo com visibility:hidden) e
+                       calculamos o viewBox do mini-SVG em coords do overlay. */
                     if (joy) {
-                        // Criar um mini-SVG pra conter o clone do knob.
-                        // getGroupBBox retorna coords em pixels (já convertidas
-                        // via CTM). O mini-SVG usa viewBox = "0 0 w h" (não
-                        // as coords do SVG original) pra o clone se posicionar
-                        // em (0,0) dentro do mini-SVG.
                         const joyBBox = this.getGroupBBox(joy);
                         if (joyBBox) {
                             const cloneSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                             cloneSvg.setAttribute('class', 'joy-knob-clone');
-                            // viewBox do mini-SVG: 0 0 w h (coords locais)
-                            cloneSvg.setAttribute('viewBox', `0 0 ${joyBBox.width} ${joyBBox.height}`);
+                            /* viewBox do mini-SVG em coords do OVERLAY (pixels).
+                               O overlay é 640×216 e o SVG original tem viewBox
+                               0 0 640 216 — então coords do SVG = coords do
+                               overlay. O mini-SVG usa viewBox = "x y w h" onde
+                               x,y = posição do knob no overlay, w,h = tamanho.
+                               Assim o clone se posiciona naturalmente dentro
+                               do mini-SVG sem precisar de translate offset. */
+                            cloneSvg.setAttribute('viewBox', `${joyBBox.x} ${joyBBox.y} ${joyBBox.width} ${joyBBox.height}`);
                             cloneSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
                             cloneSvg.style.position = 'absolute';
                             cloneSvg.style.left = joyBBox.x + 'px';
@@ -1022,36 +1029,26 @@
                             cloneSvg.style.height = joyBBox.height + 'px';
                             cloneSvg.style.pointerEvents = 'none';
                             cloneSvg.style.overflow = 'visible';
-                            // Clonar o knob (deep clone) e inserir no mini-SVG.
-                            // O clone mantém o transform original (matrix do
-                            // Affinity), mas como o mini-SVG tem viewBox="0 0 w h",
-                            // precisamos TRANSLATAR o clone pra que ele apareça
-                            // na posição certa. O knob original tem transform
-                            // matrix(...) que coloca ele em coords do SVG
-                            // original. Como o mini-SVG tem viewBox 0..w, 0..h,
-                            // precisamos subtrair o offset da bbox original.
+                            /* Clonar o knob (deep clone) e inserir no mini-SVG.
+                               O clone mantém o transform original (matrix do
+                               Affinity) — não precisa de translate offset porque
+                               o viewBox do mini-SVG já está nas coords certas. */
                             const knobClone = joy.cloneNode(true);
-                            knobClone.removeAttribute('id'); // evitar ID duplicado
+                            knobClone.removeAttribute('id');
                             knobClone.setAttribute('data-joy-clone', 'true');
-                            // Pegar o transform original do joy (matrix do Affinity)
-                            const originalTransform = knobClone.getAttribute('transform') || '';
-                            // Adicionar translate(-bbox.x_svg, -bbox.y_svg) pra
-                            // compensar o offset. Mas getGroupBBox retorna coords
-                            // em pixels (já com CTM aplicado), não em viewBox units.
-                            // Pra o mini-SVG com viewBox "0 0 w h", o clone
-                            // precisa estar em coords locais 0..w, 0..h.
-                            // Solução: pegar a bbox ORIGINAL (sem CTM) do joy
-                            // e usar como offset no transform do clone.
-                            const rawBBox = joy.getBBox();
-                            const translateOffset = `translate(${-rawBBox.x} ${-rawBBox.y})`;
-                            knobClone.setAttribute('transform', `${translateOffset} ${originalTransform}`);
+                            /* Remover visibility:hidden do clone (herdado do
+                               CSS .controller-svg g#joy — mas o clone está
+                               fora do .controller-svg, então não herda. Mesmo
+                               assim, garantir explicitamente). */
+                            knobClone.style.visibility = 'visible';
                             cloneSvg.appendChild(knobClone);
                             this.overlay.appendChild(cloneSvg);
                             this.joyCloneSvg = cloneSvg;
                             this.joyCloneKnob = knobClone;
-                            // Guardar o transform original (já com offset) pra
-                            // o updateKnob poder animar o clone.
-                            this.joyCloneOriginalTransform = `${translateOffset} ${originalTransform}`;
+                            /* Guardar o transform original do knob (sem offset
+                               adicional — o viewBox do mini-SVG já cuida do
+                               posicionamento). */
+                            this.joyCloneOriginalTransform = knobClone.getAttribute('transform') || '';
                         }
                     }
                     this.stickCanvasCenter = { x: canvas.width / 2, y: canvas.height / 2 };
