@@ -27,14 +27,18 @@
             --color-y: var(--accent);
             /* Trail do joy (arcade): gradiente Nox→Sol com opacidade 100%→0%.
                trail-color-1 = Nox (mais novo, mais forte, 100% alpha).
-               trail-color-2 = Nox→Sol (1/3 da transição).
-               trail-color-3 = Sol↔Nox (2/3 da transição).
+               trail-color-2 = Nox→Sol (1/3 da transição: ~33%).
+               trail-color-3 = Sol↔Nox (2/3 da transição: ~67%).
                trail-color-4 = Sol (mais velho, mais fraco, 0% alpha).
                O drawStickTrail faz a interpolação linear entre as 4 cores +
-               alpha baseado em progresso (1 = mais novo, 0 = mais velho). */
+               alpha baseado em progresso (1 = mais novo, 0 = mais velho).
+               Sprint 007 fix: valores intermediários recalculados linearmente:
+               Nox=#8865F1 (136,101,241) → Sol=#F165A4 (241,101,164)
+               t=0.33: rgb(171,101,217) = #AB65D9
+               t=0.67: rgb(207,101,189) = #CF65BD */
             --trail-color-1: var(--nox);
-            --trail-color-2: #B8589E; /* Nox↔Sol meio */
-            --trail-color-3: #D05A8B; /* mais perto de Sol */
+            --trail-color-2: #AB65D9; /* Nox↔Sol ~33% */
+            --trail-color-3: #CF65BD; /* Nox↔Sol ~67% */
             --trail-color-4: var(--sol);
             --color-lb: var(--accent);
             --color-rb: var(--accent);
@@ -653,16 +657,23 @@
                     return Number.isFinite(n) ? n : fallback;
                 }
                 /* Resolve CSS variable to RGB via probe element.
-                   Uses var(varName) so browser resolves the full chain. */
-                parseCssVarToRgb(varName) {
+                   Uses var(varName) so browser resolves the full chain.
+                   Sprint 007: aceita fallback (fb) explícito — se a var não
+                   resolver (browser CEF/OBS, var() chains aninhadas, etc.),
+                   retorna fb em vez de {r:255,g:255,b:255} (branco). */
+                parseCssVarToRgb(varName, fb = {r:255,g:255,b:255}) {
                     const probe = document.createElement('div');
                     probe.style.color = `var(${varName})`;
                     document.body.appendChild(probe);
                     const computed = getComputedStyle(probe).color;
                     document.body.removeChild(probe);
                     const m = computed.match(/\d+/g);
-                    if (!m || m.length < 3) return { r:255, g:255, b:255 };
-                    return { r:parseInt(m[0],10), g:parseInt(m[1],10), b:parseInt(m[2],10) };
+                    if (!m || m.length < 3) return fb;
+                    /* Sprint 007 fix: se computed for 'rgba(0, 0, 0, 0)' (cor
+                       transparente default quando var não resolveu), usa fb. */
+                    const r = parseInt(m[0],10), g = parseInt(m[1],10), b = parseInt(m[2],10);
+                    if (r === 0 && g === 0 && b === 0) return fb;
+                    return { r, g, b };
                 }
                 parseColorToRgb(color) {
                     const fb = { r:255, g:255, b:255 };
@@ -939,12 +950,18 @@
                     this.overlay.insertBefore(canvas, this.svg);
                     this.stickCanvas = canvas;
                     this.stickCtx = canvas.getContext('2d');
-                    /* Resolve trail colors via CSS var() probe. */
+                    /* Resolve trail colors via CSS var() probe.
+                       Sprint 007 fix: cores --trail-color-1..4 agora têm fallback
+                       hardcoded no JS pra evitar dependência de var() chains
+                       aninhadas (var(--trail-color-1) = var(--nox) que o probe
+                       pode não resolver em alguns contextos do CEF/OBS).
+                       Fallbacks = interpolação linear Nox→Sol em 4 pontos:
+                       t=0 (Nox), t=0.33, t=0.67, t=1 (Sol). */
                     this.trailColors = [
-                        this.parseCssVarToRgb('--trail-color-1'),
-                        this.parseCssVarToRgb('--trail-color-2'),
-                        this.parseCssVarToRgb('--trail-color-3'),
-                        this.parseCssVarToRgb('--trail-color-4')
+                        this.parseCssVarToRgb('--trail-color-1', {r:136,g:101,b:241}),
+                        this.parseCssVarToRgb('--trail-color-2', {r:171,g:101,b:217}),
+                        this.parseCssVarToRgb('--trail-color-3', {r:207,g:101,b:189}),
+                        this.parseCssVarToRgb('--trail-color-4', {r:241,g:101,b:164})
                     ];
                     this.stickCanvasCenter = { x: canvas.width / 2, y: canvas.height / 2 };
                 }
