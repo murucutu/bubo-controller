@@ -1067,7 +1067,17 @@
                 getGamepad() {
                     const gp = navigator.getGamepads?.bind(navigator);
                     if (typeof gp !== 'function') return null;
-                    return Array.from(gp() || []).find(g => g && g.buttons.length > 0) || null;
+                    const pads = Array.from(gp() || []).filter(g => g && g.buttons.length > 0);
+                    if (pads.length === 0) return null;
+                    /* Sprint 007: ?gamepad=N (0-based) escolhe qual gamepad usar.
+                       Sem o parâmetro, usa o primeiro encontrado (comportamento
+                       original). Útil quando há múltiplos controles conectados
+                       (ex: Fight Stick 1P + Xbox 2P para microfone). */
+                    const idx = parseInt(getParam('gamepad', ''), 10);
+                    if (Number.isFinite(idx) && idx >= 0 && idx < pads.length) {
+                        return pads[idx];
+                    }
+                    return pads[0] || null;
                 }
                 getTriggerPressure(button) {
                     if (!button || typeof button.value !== 'number' || !Number.isFinite(button.value))
