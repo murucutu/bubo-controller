@@ -80,9 +80,10 @@
             --stick-trail-length: 60;
             --stick-trail-fade: 0.04;
             --stick-trail-blur: 12px;
-            /* Trail radius = metade do joy radius (joy r=24, trail r=12). Já
-               estava correto — padronizado conforme decisão do dono. */
-            --stick-trail-radius: 12;
+            /* Trail radius = 1/3 do joy radius (joy r=24, trail r=8). Antes
+               era 12 (metade do joy) — dono achou muito grande em relação
+               ao knob. Sprint 007: reduzido pra 8 (1/3 do joy). */
+            --stick-trail-radius: 8;
             /* ═══ v1.2610.005 — Controller hint (no gamepad connected) ═══ */
             --hint-color: var(--nimbus);
             --hint-opacity: 0.6;
@@ -348,10 +349,31 @@
         /* ═══ STICK TRAIL (Arcade) ═══ */
         .stick-trail-canvas {
             position: absolute; pointer-events: none;
-            /* NO z-index — let DOM order decide. Canvas is inserted BEFORE
-               the SVG, so the SVG (and its knob) renders ON TOP of the trail.
-               The SVG has position:absolute which establishes its own
-               stacking context, painting it above the canvas. */
+            /* Sprint 007: canvas na FRENTE do SVG (appendChild, não insertBefore).
+               Antes era atrás do SVG, e o bg 95% opaco TAPAR o trail. Agora
+               o canvas cobre o SVG mas como é transparente (só desenha o
+               trail), o SVG aparece através do canvas onde não tem trail. */
+        }
+        /* Clone do knob do joy (criado em setupStickTrail) — fica na frente
+           do canvas pra o knob não ser escondido pelo trail. Mini-SVG
+           separado, posicionado absolutamente sobre a área do knob original. */
+        .joy-knob-clone {
+            position: absolute; pointer-events: none;
+        }
+        /* Sprint 007: o clone do knob precisa ter as MESMAS regras CSS do
+           knob original (fill Nimbus 100%). Como o clone está fora do
+           .controller-svg, as regras existentes não se aplicam. Replica
+           a regra g#joy > :nth-child(1) e :nth-child(2) pra o clone. */
+        .joy-knob-clone g[data-joy-clone] > :nth-child(1),
+        .joy-knob-clone g[data-joy-clone] > :nth-child(2) {
+            fill: var(--accent) !important;
+            fill-opacity: 1;
+        }
+        /* Knob original do joy no SVG fica INVISÍVEL — só o clone aparece.
+           O original continua sendo animado por updateKnob (pra manter a
+           estrutura do SVG intacta), mas visualmente só o clone aparece. */
+        .controller-svg g#joy {
+            visibility: hidden !important;
         }
 
         /* ═══ DEBUG ═══ */
@@ -944,25 +966,94 @@
                     canvas.style.top = (bbox.y - padding) + 'px';
                     canvas.style.width = (bbox.width + padding * 2) + 'px';
                     canvas.style.height = (bbox.height + padding * 2) + 'px';
-                    /* Insert canvas BEFORE the SVG so the knob renders ON TOP
-                       of the trail. The trail is visible through the 40%
-                       transparent background rect. */
-                    this.overlay.insertBefore(canvas, this.svg);
+                    /* Sprint 007 fix: o canvas precisa ficar na FRENTE do SVG
+                       (pra o trail ser visível), mas o knob do joy precisa
+                       ficar na frente do trail (pra o knob não ser coberto
+                       pelo trail).
+                       
+                       Antes: canvas era insertBefore(svg) — canvas atrás do
+                       SVG. Funcionava quando o bg era 40% opaco (60% transparente),
+                       mas quebrou quando mudamos pra 95% opaco — o bg agora
+                       TAPA o trail.
+                       
+                       Solução: canvas appendChild DEPOIS do SVG (na frente).
+                       O knob original do joy fica INVISÍVEL no SVG (display:none),
+                       e um CLONE do knob é criado fora do SVG e posicionado
+                       absolutamente por cima do canvas. O updateKnob anima
+                       AMBOS (original + clone) ao mesmo tempo, mantendo sync.
+                       
+                       Estrutura final do overlay:
+                       - SVG (background 95% + todos os botões + joy_reach)
+                         - g#joy (display:none — invisível, mas animado)
+                       - canvas (trail)
+                       - clone#joy-clone (na frente de tudo, animado) */
+                    this.overlay.appendChild(canvas);
                     this.stickCanvas = canvas;
                     this.stickCtx = canvas.getContext('2d');
-                    /* Resolve trail colors via CSS var() probe.
-                       Sprint 007 fix: cores --trail-color-1..4 agora têm fallback
-                       hardcoded no JS pra evitar dependência de var() chains
-                       aninhadas (var(--trail-color-1) = var(--nox) que o probe
-                       pode não resolver em alguns contextos do CEF/OBS).
-                       Fallbacks = interpolação linear Nox→Sol em 4 pontos:
-                       t=0 (Nox), t=0.33, t=0.67, t=1 (Sol). */
+                    /* Trail colors com fallback hardcoded (pra CEF do OBS
+                       não depender de var() chains aninhadas). */
                     this.trailColors = [
                         this.parseCssVarToRgb('--trail-color-1', {r:136,g:101,b:241}),
                         this.parseCssVarToRgb('--trail-color-2', {r:171,g:101,b:217}),
                         this.parseCssVarToRgb('--trail-color-3', {r:207,g:101,b:189}),
                         this.parseCssVarToRgb('--trail-color-4', {r:241,g:101,b:164})
                     ];
+                    /* Clonar o knob do joy. O clone é um <svg> separado que
+                       contém só o knob, posicionado absolutamente por cima
+                       do canvas. O updateKnob vai animar o original; o
+                       updateKnob (com hook abaixo) espelha o transform no clone. */
+                    if (joy) {
+                        // Criar um mini-SVG pra conter o clone do knob.
+                        // getGroupBBox retorna coords em pixels (já convertidas
+                        // via CTM). O mini-SVG usa viewBox = "0 0 w h" (não
+                        // as coords do SVG original) pra o clone se posicionar
+                        // em (0,0) dentro do mini-SVG.
+                        const joyBBox = this.getGroupBBox(joy);
+                        if (joyBBox) {
+                            const cloneSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                            cloneSvg.setAttribute('class', 'joy-knob-clone');
+                            // viewBox do mini-SVG: 0 0 w h (coords locais)
+                            cloneSvg.setAttribute('viewBox', `0 0 ${joyBBox.width} ${joyBBox.height}`);
+                            cloneSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                            cloneSvg.style.position = 'absolute';
+                            cloneSvg.style.left = joyBBox.x + 'px';
+                            cloneSvg.style.top = joyBBox.y + 'px';
+                            cloneSvg.style.width = joyBBox.width + 'px';
+                            cloneSvg.style.height = joyBBox.height + 'px';
+                            cloneSvg.style.pointerEvents = 'none';
+                            cloneSvg.style.overflow = 'visible';
+                            // Clonar o knob (deep clone) e inserir no mini-SVG.
+                            // O clone mantém o transform original (matrix do
+                            // Affinity), mas como o mini-SVG tem viewBox="0 0 w h",
+                            // precisamos TRANSLATAR o clone pra que ele apareça
+                            // na posição certa. O knob original tem transform
+                            // matrix(...) que coloca ele em coords do SVG
+                            // original. Como o mini-SVG tem viewBox 0..w, 0..h,
+                            // precisamos subtrair o offset da bbox original.
+                            const knobClone = joy.cloneNode(true);
+                            knobClone.removeAttribute('id'); // evitar ID duplicado
+                            knobClone.setAttribute('data-joy-clone', 'true');
+                            // Pegar o transform original do joy (matrix do Affinity)
+                            const originalTransform = knobClone.getAttribute('transform') || '';
+                            // Adicionar translate(-bbox.x_svg, -bbox.y_svg) pra
+                            // compensar o offset. Mas getGroupBBox retorna coords
+                            // em pixels (já com CTM aplicado), não em viewBox units.
+                            // Pra o mini-SVG com viewBox "0 0 w h", o clone
+                            // precisa estar em coords locais 0..w, 0..h.
+                            // Solução: pegar a bbox ORIGINAL (sem CTM) do joy
+                            // e usar como offset no transform do clone.
+                            const rawBBox = joy.getBBox();
+                            const translateOffset = `translate(${-rawBBox.x} ${-rawBBox.y})`;
+                            knobClone.setAttribute('transform', `${translateOffset} ${originalTransform}`);
+                            cloneSvg.appendChild(knobClone);
+                            this.overlay.appendChild(cloneSvg);
+                            this.joyCloneSvg = cloneSvg;
+                            this.joyCloneKnob = knobClone;
+                            // Guardar o transform original (já com offset) pra
+                            // o updateKnob poder animar o clone.
+                            this.joyCloneOriginalTransform = `${translateOffset} ${originalTransform}`;
+                        }
+                    }
                     this.stickCanvasCenter = { x: canvas.width / 2, y: canvas.height / 2 };
                 }
                 bindDebug() {
@@ -1052,8 +1143,19 @@
                     const maxOffset = knob.maxOffset || 26;
                     const ox = cx * maxOffset;
                     const oy = cy * maxOffset;
-                    knob.el.setAttribute('transform',
-                        `translate(${ox} ${oy}) ${knob.originalTransform}`);
+                    const newTransform = `translate(${ox} ${oy}) ${knob.originalTransform}`;
+                    knob.el.setAttribute('transform', newTransform);
+                    /* Sprint 007: espelhar o transform no clone do joy (se
+                       existir). O clone é criado em setupStickTrail pra
+                       ficar na frente do canvas (que está na frente do SVG
+                       com bg 95% — sem o clone, o knob seria escondido pelo
+                       trail). O clone tem um transform base diferente (com
+                       translate offset do mini-SVG), então usamos
+                       joyCloneOriginalTransform em vez de knob.originalTransform. */
+                    if (this.joyCloneKnob && this.joyCloneOriginalTransform && (id === 'joy' || knob.stickId === 'joy')) {
+                        const cloneTransform = `translate(${ox} ${oy}) ${this.joyCloneOriginalTransform}`;
+                        this.joyCloneKnob.setAttribute('transform', cloneTransform);
+                    }
                 }
                 updateArcadeStick(x, y) {
                     this.updateKnob('joy', x, y);
@@ -1124,12 +1226,12 @@
                             ctx.moveTo(p1.x, p1.y);
                             ctx.lineTo(p2.x, p2.y);
                             ctx.strokeStyle = `rgba(${c.r},${c.g},${c.b},${c.a})`;
-                            /* Ghost glow só nos mais novos (t > 0.7) — dá um
-                               "brilho" no ponto atual sem alagar o trail todo. */
-                            if (t > 0.7) {
-                                ctx.shadowBlur = this.stickTrailBlur * t;
-                                ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},${c.a})`;
-                            } else ctx.shadowBlur = 0;
+                            /* Sprint 007: glow neon 3px difuso na mesma cor do
+                               trail em TODOS os segments (não só nos mais novos).
+                               Antes era só t > 0.7 com blur 12px (gigante).
+                               Agora 3px em todos — efeito "glow neon" sutil. */
+                            ctx.shadowBlur = 3;
+                            ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},${c.a})`;
                             ctx.stroke();
                         }
                         ctx.shadowBlur = 0;
@@ -1143,10 +1245,10 @@
                         ctx.beginPath();
                         ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
                         ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},${c.a})`;
-                        if (t > 0.7) {
-                            ctx.shadowBlur = this.stickTrailBlur * t;
-                            ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},${c.a})`;
-                        } else ctx.shadowBlur = 0;
+                        /* Sprint 007: glow neon 3px difuso em todos os circles
+                           (igual aos segments — efeito "glow neon" sutil). */
+                        ctx.shadowBlur = 3;
+                        ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},${c.a})`;
                         ctx.fill(); ctx.shadowBlur = 0;
                     }
                 }
