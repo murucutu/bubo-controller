@@ -11,6 +11,24 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). Conversation
 
 ---
 
+## [v1.2610.009] — 2026-10-27
+
+### Conversation excerpt (PT-BR, verbatim)
+
+> 1. Testei em 2 dias. No dia que pedi a solução, funcionou trocando `gamepad` de `0` (padrão) para `1`. No segundo dia, os dois controles já conectados via USB, mas com o controle Xbox desligado antes de usá-lo (Fight Stick é ligado automaticamente ao conectar USB), aparentemente o `gamepad=1` não funcionou para o Fight Stick. Possível reordenação de identificação das portas USB já conectadas ao iniciar o Windows? Verifique, responda e, se resolvido, exclua a pendência.
+
+### Fixed
+
+- **`?gamepad=N` picked the wrong pad on day 2 — root cause: USB enumeration order is not stable across boots.** The maintainer's diagnosis was correct: the Gamepad API exposes pads in the order Windows enumerates them, and that order can be re-shuffled between boots (power-on order of hubs, port assignment, a pad waking up later). So `gamepad=1` is a lottery — on day 1 index 1 was the fightstick, on day 2 the same index pointed at the Xbox pad (or the list had a different length, shifting everything).
+- **Fix (3 selection modes, superset of v1.2610.008's `?gamepad=N`):**
+  1. `?gamepad=N` (kept for compatibility) — 0-based index. **Out-of-range now falls back to index 0** instead of silently returning pad 0 anyway (same effective result, but now logged), keeping the overlay alive when a pad is off.
+  2. `?gamepad=<id substring>` — **NEW, stable**: case-insensitive substring match against the pad's USB id string as reported by the browser (`"Vendor: 0x0f0d Product: 0x00b1 (…) (...)”`). The Vendor/Product id does not change with USB ports or boot order, so the selection is stable across days. Examples: `?gamepad=hori`, `?gamepad=fight`, `?gamepad=0x0f0d`.
+  3. `?gamepad=list` — **NEW, diagnostic**: logs the connected pads (selection index → id) to the console whenever the set changes (never per-frame), plus a tip line. Use it once in the OBS Browser Source console (or a normal browser tab) to discover the fightstick's id, then pin the URL with a stable substring.
+- **Runtime logging (`v1.2610.007` helpers, kept quiet by signature-diffing):** the active pad is logged once whenever the *selection* changes (`[bubo] gamepad ativo: <id> — seleção: <why>`), including the previous pad id on transitions, and a `console.warn` when a text match finds nothing (overlay intentionally has no input rather than silently driving the wrong pad).
+- Docs: README URL-parameters table gains the `?gamepad=` row + a "Multiple controllers tip" callout recommending the id mode over the index mode.
+
+---
+
 ## [v1.2610.008] — 2026-10-13
 
 ### Conversation excerpt (PT-BR, verbatim)

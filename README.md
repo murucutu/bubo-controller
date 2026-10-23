@@ -69,8 +69,11 @@ The project is dedicated to the **public domain** ([The Unlicense](LICENSE)) —
 | `?viewmenu=` | `1` / `true` / `yes` / `on` | Show the VIEW/MENU icons (two-squares for View, hamburger for Menu). Hidden by default. |
 | `?scale=X` | any positive number | Manual scale override (e.g. `?scale=2` = 2× zoom) |
 | `?fit=` | `contain` (default) / `cover` | How overlay fits the source: contain = preserve aspect with padding; cover = fill source, may clip sides |
+| `?gamepad=` | `<N>` / `<id substring>` / `list` | Which gamepad to read when several are connected (v1.2610.009). `N` = 0-based index (**unstable**: follows Windows USB enumeration order, which can be re-shuffled between boots/hubs — one day index 1 is the fightstick, next day it's the Xbox pad). `<id substring>` = match against the USB id string reported by the browser (e.g. `Vendor: 0x0f0d Product: 0x00b1 (...)`) — **stable across boots** (e.g. `?gamepad=hori`, `?gamepad=fight`, `?gamepad=0x0f0d`). `list` = diagnostic mode: logs connected gamepads (index → id) to the console whenever the set changes, so you can discover the exact id to match. Out-of-range index falls back to index 0 (keeps the overlay alive). |
 
 Combine freely: `?controller=xbox&color=xbox&viewmenu=1&scale=2`
+
+> **Multiple controllers tip:** prefer `?gamepad=<id substring>` over `?gamepad=N`. The numeric index follows the USB enumeration order, which Windows may reorder between boots (the reported bug: `gamepad=1` picked the wrong pad on day 2). Open the Browser Source console once with `?gamepad=list` to see each pad's id, then pin the selection with a stable substring.
 
 ---
 
