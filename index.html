@@ -14,9 +14,8 @@
                Umbral = fill color (button fill + controller background). */
             --nimbus: #F2F2F2;
             --umbral: #0D0D0D;
-            /* Sprint 007 (paleta Nox/Sol — identidade da marca).
-               Nox = roxo #8865F1, Sol = rosa #F165A4. Padrão de cor da marca
-               Murucutu, aplicado ao rastro do joy (gradiente Nox→Sol). */
+            /* Paleta Nox/Sol do rastro do joy (gradiente Nox→Sol):
+               Nox = roxo #8865F1, Sol = rosa #F165A4. */
             --nox: #8865F1;
             --sol: #F165A4;
             --accent: var(--nimbus);
@@ -54,11 +53,11 @@
                When pressed, the knob is filled with Nimbus 100% opaque (v1.2610.005). */
             --color-l3: var(--nimbus);
             --color-r3: var(--nimbus);
-            /* Background opacity = 95% (per maintainer v1.2610.005: single umbral
-               background, near-opaque for OBS visibility). */
+            /* Background opacity = 95% (single umbral background,
+               near-opaque for OBS visibility). */
             --bg-opacity: 0.95;
-            /* Button fill opacity = 0% in idle (outline-only, per maintainer
-               v1.2610.005). The pressed state changes fill COLOR to the outline
+            /* Button fill opacity = 0% in idle (outline-only). The pressed
+               state changes fill COLOR to the outline
                color or Xbox scheme color, with 100% opacity (full fill). */
             --button-fill-opacity: 0;
             --button-pressed-opacity: 1;
@@ -75,14 +74,11 @@
             --label-l3: "L3"; --label-r3: "R3";
             --label-view: ""; --label-menu: "";
             --trigger-pressure: 0%;
-            /* Sprint 007: trail length = 60 (1 segundo a 60fps). Antes era 30
-               (0.5s) — aumentei pra 1s. */
+            /* Trail length = 60 (1 segundo a 60fps). */
             --stick-trail-length: 60;
             --stick-trail-fade: 0.04;
             --stick-trail-blur: 12px;
-            /* Trail radius = 1/3 do joy radius (joy r=24, trail r=8). Antes
-               era 12 (metade do joy) — muito grande em relação
-               ao knob. Sprint 007: reduzido pra 8 (1/3 do joy). */
+            /* Trail radius = 1/3 do joy radius (joy r=24, trail r=8). */
             --stick-trail-radius: 8;
             /* ═══ v1.2610.005 — Controller hint (no gamepad connected) ═══ */
             --hint-color: var(--nimbus);
@@ -164,9 +160,8 @@
            (which resolves to --color-a/b/x/y for ABXY, defaulting to
            var(--accent) = Nimbus). When ?color=xbox is active, the ABXY
            colors (#4CAF50 green, #E5342A red, #0E7DC0 blue, #F2C200 amber)
-           appear in BOTH the outline AND the pressed fill — matching the
-           v1.2610.004 behavior the maintainer requested ("O contorno poderia
-           continuar colorido, como era"). fill-rule: evenodd renders the
+           appear in BOTH the outline AND the pressed fill (v1.2610.004
+           behavior). fill-rule: evenodd renders the
            ring as an outline (inner is "hollow"). */
         .controller-svg g[id] > :nth-child(2) {
             fill: var(--button-color, var(--accent)) !important;
@@ -290,14 +285,14 @@
         /* ═══ BUTTON ICONS (v1.2610.005 — VIEW/MENU; v1.2610.006 — hidden by default) ═══
            Icons are embedded as <rect class="button-icon"> children of the
            button <g> (after the outline path, so they are nth-child(3)+).
-           v1.2610.006: HIDDEN BY DEFAULT (display: none). The maintainer
-           requested icons only appear with a URL argument. Show them by
+           v1.2610.006: HIDDEN BY DEFAULT (display: none); shown only when
+           the ?viewmenu= URL argument is present. Show them by
            adding the `.show-viewmenu-icons` class to the overlay, which the
            JS does when `?viewmenu=1` is in the URL.
            When visible, they are styled like the outline (Nimbus, opacity 1)
            in idle, and invert to Umbral (color-bg) in pressed (matching the
            label text behavior). Generic UI metaphors (two-squares for View,
-           hamburger for Menu) — not brand art (invariant §6.4). */
+           hamburger for Menu) — no brand-protected art. */
         .controller-svg g[id] .button-icon {
             display: none;
             fill: var(--accent) !important;
@@ -385,9 +380,9 @@
            v1.2610.008 — repositioned to the bottom gap (27px reserved zone).
            Subtle text shown after --hint-delay-ms of no gamepad, hidden when
            a gamepad connects. Hidden permanently after first connection (does
-           not reappear during a stream to avoid noise). Styled per maintainer
-           spec: simple text, weight 900 (Sofia Sans XC Black not available
-           offline — system fallback per invariant §6.3; see AUDIT).
+           not reappear during a stream to avoid noise). Styled as simple
+           text, weight 900 (Sofia Sans XC Black not available offline —
+           system font fallback keeps the project dependency-free).
            v1.2610.008: positioned in the bottom 27px gap (y=189→216 of the
            216px-tall overlay) — the controller's bottom margin. The text
            sits in an 18px-tall band centered in the gap, leaving 4.5px above
@@ -616,7 +611,7 @@
             applyIconSet();
 
             /* v1.2610.006 — ?viewmenu=1 shows the VIEW/MENU icons (hidden by
-               default per maintainer request). Any truthy value (1, true, yes)
+               default). Any truthy value (1, true, yes)
                activates the icons. The CSS handles the actual display toggle
                via the `.show-viewmenu-icons` class on the overlay. */
             function applyViewMenuIcons() {
@@ -888,10 +883,9 @@
                    is shown after --hint-delay-ms of no gamepad detection, and
                    hidden when a gamepad connects. It does NOT reappear after
                    the first gamepad connection (avoids noise during a stream).
-                   The text is in Sofia Sans XC Black per maintainer spec — but
-                   the project is offline-only (invariant §6.3, no external
-                   fonts), so we use the system font stack at weight 900 as a
-                   fallback (see AUDIT entry for v1.2610.005). */
+                   The intended font is Sofia Sans XC Black, but the project
+                   is offline-only (no external fonts), so the system font
+                   stack at weight 900 is used as the fallback. */
                 setupControllerHint() {
                     if (!this.overlay) return;
                     const lang = (document.documentElement.lang || 'en').toLowerCase();
@@ -1293,7 +1287,7 @@
                     };
                     /* Motion blur: thick line segments between consecutive trail
                        positions, with PER-SEGMENT interpolated color + alpha. This
-                       eliminates ALL gaps. */
+                       eliminates ALL gaps (continuous trail, no breaks). */
                     if (len > 1) {
                         ctx.lineCap = 'round'; ctx.lineJoin = 'round';
                         ctx.lineWidth = radius * 2;

@@ -30,19 +30,13 @@ node_modules/
 ._*/
 
 # ============================================================
-# Planos privados do mantenedor (open-core strategy)
+# Maintainer-local notes and unreleased material (never commit)
 # ============================================================
-# Estes arquivos contêm planos detalhados de variantes, mapeamentos
-# de botões, decisões arquiteturais, e estratégia de monetização.
-# NÃO devem ser commitados para o repositório público.
 PRIVATE_PLANS.md
 private/
 .plans/
 *.private.md
 *.private.svg
 *.private.png
-
-# Variantes premium em desenvolvimento (decidir open-source vs closed)
-# Quando finalizada, mover para a pasta pública apropriada ou remover do ignore.
 premium/
 variants-premium/

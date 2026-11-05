@@ -45,9 +45,9 @@ This document lists planned variants, future improvements, and how to contribute
 
 ## Planned Variants
 
-The Xbox Series base is the **open core** of the project. The Arcade fightstick layout is now also part of the open core (shipped in `v1.2610.001` via `?controller=arcade`). Variants for other controllers are planned for the future. **Detailed plans (layouts, button mappings, architectural decisions) are kept private by the maintainer** during development — finished variants may or may not be open-sourced, depending on context.
+The Xbox Series base is the **open core** of the project. The Arcade fightstick layout is now also part of the open core (shipped in `v1.2610.001` via `?controller=arcade`). Variants for other controllers are planned for the future.
 
-If you want to contribute a variant (e.g., a different controller layout), feel free to open a PR. The architecture (single-file HTML, Gamepad API, CSS variables `--color-*`/`--label-*`) is documented in [DESIGN_GUIDE.md](DESIGN_GUIDE.md), [CUSTOMIZATION_GUIDE.md](CUSTOMIZATION_GUIDE.md), and [VARIANTS.md](VARIANTS.md).
+If you want to contribute a variant (e.g., a different controller layout), feel free to open a PR. The architecture (single-file HTML, Gamepad API, CSS variables `--color-*`/`--label-*`) is documented in [README.md](README.md).
 
 ### Shipped (open core)
 
@@ -58,9 +58,6 @@ If you want to contribute a variant (e.g., a different controller layout), feel 
 
 - **PlayStation DualSense** with ✕ ○ □ △ symbols, touchpad, and central PS button.
 - **Nintendo Pro Controller** with swapped A/B/X/Y layout (A right, B bottom) and +/−/Home buttons.
-- **Premium arcade variant** with original art.
-
-Custom variants may be commissioned from the maintainer.
 
 ---
 
@@ -80,7 +77,6 @@ These are infrastructure improvements that benefit any future variant:
 | Sprite pack runtime (Phase 5)          | Medium    | Medium     | See [LABEL_PACKS_GUIDE.md](LABEL_PACKS_GUIDE.md) — model ready, integration pending |
 
 ---
-
 
 ## Contributing
 
