@@ -11,6 +11,32 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). This is the 
 
 ---
 
+## [v1.2611.001] — 2026-11-05
+
+Documentation overhaul sprint — docs only, zero runtime change (`index.html` touched only for source-comment sanitization).
+
+### Changed
+
+- **Documentation consolidated into the four essential documents** — README, CHANGELOG, ROADMAP, AGENT (was 15 markdown files). Everything a user, artist, or contributor needs now lives in README.md: the full customization reference (global colors, ABXY schemes, per-button colors, opacity system, labels, arcade trail), the controller-layout creation guide (SVG blueprint structure, naming conventions, workflow, anti-patterns), the label sprite pack recipe, the OBS testing matrix, contributing conventions, and the architecture invariants.
+- **README rewritten against the actual runtime API** — all 7 URL parameters (including the `?gamepad=` index/id-substring/list modes), the real `:root` variables and defaults (background 95%, buttons outline-only in idle / 100% solid on press, knobs 50% → 100%, trail length 60 / radius 8 / blur 12px), the fixed Nox→Sol trail gradient, and both layouts documented on the 640×216 canvas. Fixes all stale references (768×324-era proportions tables, 20%/95% opacity defaults, missing `?gamepad=` row).
+- **CHANGELOG rewritten as a pure technical record** — verbatim conversation excerpts, workspace paths, and internal cross-references removed; the v1.2610.009 entry completed to cover the full arcade-v2 series that had shipped without changelog coverage.
+- **AGENT.md replaced by the universal agent operating profile (v1.0)** — identical across the maintainer's repositories, synced via the project hub. Carries no project content; this README's "Architecture invariants" section is the project-specific layer.
+- **ROADMAP rewritten** — accurate current status (arcade v2 and gamepad selection marked shipped), lean structure.
+
+### Removed
+
+- `docs/AUDIT.md`, `docs/AUDIT_PLAN.md` — internal architecture audit history (the engineering record lives in CHANGELOG.md and git history).
+- `README.pt.md` — English-only distribution (the PT-BR mirror had drifted and doubled per-sprint maintenance).
+- `CUSTOMIZATION_GUIDE.md`, `DESIGN_GUIDE.md`, `VARIANTS.md`, `LABEL_PACKS_GUIDE.md`, `CONTRIBUTING.md`, `masks/README.md`, `masks/controllers/README.md`, `masks/labels/README.md` — absorbed into README.md (or retired where stale).
+
+### Fixed
+
+- Stale version references: README badge and ROADMAP build line updated to `v1.2611.001` (README badge was one sprint behind VERSION).
+- `index.html` source comments sanitized (references to the internal project ecosystem and owner requests removed — comments only, zero behavior change).
+- `.gitignore` comment block on maintainer-local files neutralized (ignore patterns kept).
+
+---
+
 ## [v1.2610.009] — 2026-10-27
 
 ### Added
