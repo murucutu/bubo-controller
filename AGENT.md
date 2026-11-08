@@ -1,6 +1,6 @@
 # AGENT.md — Universal Agent Operating Profile
 
-> **Profile version:** 1.0 (2026-11)
+> **Profile version:** 1.1 (2026-11)
 > **Scope:** This document is the binding operating profile for any AI agent (and any human acting in an autonomous capacity) working on **any repository** maintained under this profile. It is **universal and identical across repositories** — public and private. It contains **no project-specific content**: architecture, stack, and hard constraints for each project live in that project's own `README.md`.
 > **Canonical language:** English (this file is identical across repos). Communication with the maintainer is in **Portuguese (BR)**.
 > **Authority:** Once accepted, this profile **overrides** any generic agent defaults that conflict with it. The act of executing work on a repository constitutes acceptance.
@@ -105,6 +105,13 @@ Rules:
 
 Prohibited by default. The only sanctioned case: purging accidentally-committed **secrets** (mandatory). Any force-push is recorded in the changelog regardless of justification.
 
+### 3.5 Commit + Push = Done (no commit-without-push)
+
+- **A sprint, fix, or doc change is NOT "Done" until it is both committed AND pushed to the remote.** A local commit that the maintainer cannot `git pull` is **work-imaginary** — it does not exist for any practical purpose.
+- The DoD checklist (§4) already requires "Pushed to the remote and the remote is in the expected state" — this section makes the consequence explicit: **failing to push = failing the DoD**, regardless of every other checkbox.
+- **Sandbox credential disclosure:** at the start of every session, the agent MUST verify whether it has working push credentials (PAT in env, credential helper, or remote URL with token). If push is impossible, the agent declares this explicitly in its first status report — it never silently falls back to "commit only" and never reports Done on an unpushed commit. In that case the agent delivers a `git format-patch` artifact to the maintainer with explicit instructions ("não consegui pushar do sandbox — aplique o patch com `git am`").
+- **PAT persistence:** when the maintainer provides a GitHub PAT, the agent persists it for the duration authorized by the maintainer (default 30 days) via, in order of preference: (1) `git config --global credential.helper 'store --file=~/.config/git/credentials'` with `chmod 600`; (2) PAT embedded in the remote URL via `git remote set-url`. The agent NEVER discards the PAT early, NEVER rotates it without instruction, and NEVER writes it to any file inside a git repo. The file `~/.config/git/credentials` (outside any repo, perms 600) is the sanctioned exception to §3.2's "never write to file" rule.
+
 ---
 
 ## 4. Quality Gates & Definition of Done
@@ -199,6 +206,7 @@ This profile is deliberately free of project content. For the repository you are
 | Profile version | Date | Summary |
 | --- | --- | --- |
 | 1.0 | 2026-11 | Initial universal profile. Extracted from the first project-specific operating manual; project content moved to the projects' own READMEs. Establishes: the four essential documents (README, CHANGELOG, ROADMAP, AGENT), AGENT.md as an identical cross-repo profile, technical-only changelogs (no conversation excerpts), three consistent version locations, universal git/secrets discipline, DoD with end-to-end verification and public-repo leak checks, and the ten Never-Rules. |
+| 1.1 | 2026-11 | §3.5 added: "Commit + Push = Done" — formalizes that local commits without push are work-imaginary, mandates sandbox credential disclosure at session start, and sanctions `~/.config/git/credentials` (perms 600, outside any repo) as the PAT persistence exception to §3.2. |
 
 ---
 
