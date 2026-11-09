@@ -632,154 +632,6 @@
             const clamp = (v, mn=0, mx=1) => Math.min(mx, Math.max(mn, v));
             const clampAxis = (v) => Math.min(1, Math.max(-1, v));
 
-            /* ═══ WebHID adapter — imuniza o overlay contra background throttling ═══
-               O CEF do OBS throttla requestAnimationFrame quando o OBS perde foco
-               de janela no Windows. A Gamepad API padrão só atualiza buttons/axes
-               quando a página está ativa — logo, o overlay congela quando o usuário clica em outra janela (ex.: o jogo numa outra tela).
-
-               WebHID lê input reports via EVENTO (device.addEventListener
-               'inputreport'), não via poll no rAF. Eventos HID não são afetados
-               pelo background throttling — o overlay continua lendo o controle
-               mesmo com o OBS sem foco.
-
-               Adapter expõe objeto compatível com a Gamepad API:
-               { id, buttons:[{pressed,value}], axes:[...] } — 16 buttons + 4 axes
-               (Xbox standard). updateGamepadState/updateAnalogState não mudam.
-
-               Fallback: se WebHID indisponível ou permissão negada, cai pra
-               Gamepad API (getGamepad() original). */
-
-            const XBOX_HID_USAGE_PAGE = 0x0001;  // Generic Desktop
-            const XBOX_HID_USAGE = 0x0005;       // Gamepad
-
-            class BuboHidAdapter {
-                constructor() {
-                    this.supported = !!(navigator.hid && typeof navigator.hid.requestDevice === 'function');
-                    this.device = null;
-                    this.pads = [];
-                    this._onDisconnect = null;
-                    if (this.supported) {
-                        navigator.hid.addEventListener('disconnect', (e) => {
-                            const gone = e.device;
-                            if (this.device === gone) {
-                                this.device = null;
-                                this.pads = [];
-                                console.info('[bubo-hid] dispositivo desconectado — cai pra Gamepad API');
-                                this._onDisconnect?.();
-                            }
-                        });
-                    }
-                }
-
-                /* Tenta reconectar a dispositivos já autorizados antes (sem prompt). */
-                async tryAutoConnect() {
-                    if (!this.supported) return false;
-                    try {
-                        const devices = await navigator.hid.getDevices();
-                        for (const d of devices) {
-                            if (await this._open(d)) return true;
-                        }
-                    } catch (e) {
-                        console.warn('[bubo-hid] autoConnect falhou:', e);
-                    }
-                    return false;
-                }
-
-                /* Pede permissão ao usuário (requer gesture — click no overlay). */
-                async requestAndConnect() {
-                    if (!this.supported) return false;
-                    try {
-                        const devices = await navigator.hid.requestDevice({
-                            filters: [{ usagePage: XBOX_HID_USAGE_PAGE, usage: XBOX_HID_USAGE }]
-                        });
-                        if (!devices || devices.length === 0) return false;
-                        return await this._open(devices[0]);
-                    } catch (e) {
-                        console.warn('[bubo-hid] requestDevice cancelado/falhou:', e);
-                        return false;
-                    }
-                }
-
-                async _open(device) {
-                    try {
-                        if (!device.opened) await device.open();
-                        device.addEventListener('inputreport', (e) => this._handleReport(e));
-                        this.device = device;
-                        this.pads = [this._makePad(device)];
-                        console.info(`[bubo-hid] conectado: ${device.productName || device.vendorId}:${device.productId}`);
-                        return true;
-                    } catch (e) {
-                        console.warn('[bubo-hid] open falhou:', e);
-                        return false;
-                    }
-                }
-
-                _makePad(device) {
-                    const pad = {
-                        id: `WebHID ${device.productName || 'Gamepad'} (${device.vendorId.toString(16).padStart(4,'0')}:${device.productId.toString(16).padStart(4,'0')})`,
-                        axes: [0, 0, 0, 0],
-                        buttons: Array.from({ length: 16 }, () => ({ pressed: false, value: 0 })),
-                        connected: true,
-                        mapping: 'standard',
-                        timestamp: performance.now(),
-                    };
-                    this._currentPad = pad;
-                    return pad;
-                }
-
-                /* Parse de input report Xbox-standard (report ID 0x03, 17 bytes).
-                   DualSense/Hori fight stick podem ter layouts diferentes — para
-                   esses, o fallback Gamepad API é mais confiável. */
-                _handleReport(e) {
-                    const { data, reportId } = e;
-                    const pad = this._currentPad;
-                    if (!pad) return;
-                    if (reportId !== 0x03 || data.byteLength < 17) return;
-
-                    const v = new DataView(data.buffer);
-                    const b1 = v.getUint8(1);
-                    const b2 = v.getUint8(2);
-                    const dpad = v.getUint8(3);
-                    const lt = v.getUint16(4, true);
-                    const rt = v.getUint16(6, true);
-                    const lx = v.getInt16(8, true);
-                    const ly = v.getInt16(10, true);
-                    const rx = v.getInt16(12, true);
-                    const ry = v.getInt16(14, true);
-
-                    const btn = pad.buttons;
-                    btn[0].pressed = btn[0].value = !!(b1 & 0x01);
-                    btn[1].pressed = btn[1].value = !!(b1 & 0x02);
-                    btn[2].pressed = btn[2].value = !!(b1 & 0x04);
-                    btn[3].pressed = btn[3].value = !!(b1 & 0x08);
-                    btn[4].pressed = btn[4].value = !!(b1 & 0x10);
-                    btn[5].pressed = btn[5].value = !!(b1 & 0x20);
-                    btn[6].pressed = lt > 0; btn[6].value = lt / 1023;
-                    btn[7].pressed = rt > 0; btn[7].value = rt / 1023;
-                    btn[8].pressed = btn[8].value = !!(b1 & 0x40);
-                    btn[9].pressed = btn[9].value = !!(b1 & 0x80);
-                    btn[10].pressed = btn[10].value = !!(b2 & 0x01);
-                    btn[11].pressed = btn[11].value = !!(b2 & 0x02);
-
-                    btn[12].pressed = btn[12].value = (dpad === 0 || dpad === 1 || dpad === 7);
-                    btn[13].pressed = btn[13].value = (dpad === 4 || dpad === 5 || dpad === 3);
-                    btn[14].pressed = btn[14].value = (dpad === 6 || dpad === 5 || dpad === 7);
-                    btn[15].pressed = btn[15].value = (dpad === 2 || dpad === 1 || dpad === 3);
-
-                    pad.axes[0] = lx / 32767;
-                    pad.axes[1] = ly / 32767;
-                    pad.axes[2] = rx / 32767;
-                    pad.axes[3] = ry / 32767;
-                    pad.timestamp = performance.now();
-                }
-
-                getPad() {
-                    return this.device && this._currentPad ? this._currentPad : null;
-                }
-
-                onDisconnect(fn) { this._onDisconnect = fn; }
-            }
-
             class BuboController {
                 constructor() {
                     this.overlay = document.getElementById('controller-overlay');
@@ -806,23 +658,12 @@
                     this.gamepadEverConnected = false;
                     this.lastGamepadSeenAt = performance.now();
                     this.hintDelayMs = this.readVar('--hint-delay-ms', 5000);
-                    /* WebHID adapter — imuniza contra background throttling do CEF.
-                       Fallback para Gamepad API se indisponível ou permissão negada. */
-                    this.hid = new BuboHidAdapter();
-                    this._pollTimer = null;
                     this.overlay.classList.add('controller-' + this.controllerType);
                     this.loadController();
                     this.setupControllerHint();
                     this.bindDebug();
-                    this.setupHidConnect();
-                    this._startPolling();
                     this.animate = this.animate.bind(this);
                     this.animate();
-                    /* Auto-conecta a dispositivos WebHID já autorizados antes.
-                       Se não houver, cai pra Gamepad API (silencioso). */
-                    this.hid.tryAutoConnect().then((ok) => {
-                        if (ok) console.info('[bubo] WebHID auto-conectado');
-                    });
                 }
                 readVar(name, fallback) {
                     const v = getComputedStyle(this.overlay).getPropertyValue(name).trim();
@@ -1063,17 +904,6 @@
                         this.gamepadEverConnected = true;
                         this.lastGamepadSeenAt = performance.now();
                         this.hintElement.classList.remove('visible');
-                        /* Botão WebHID só some se WebHID conectou — senão
-                           continua visível pra migrar da Gamepad
-                           API (vulnerável a throttling) pro WebHID. */
-                        if (this.hid.getPad()) {
-                            if (this._hidBtn) this._hidBtn.style.display = 'none';
-                            this._logDiag('WebHID ativo — overlay imune a throttling');
-                        } else {
-                            this._logDiag(this.hid.supported
-                                ? 'Gamepad API (vulnerável) — clique "Conectar WebHID"'
-                                : 'Gamepad API (WebHID não suportado neste CEF)');
-                        }
                         return;
                     }
                     if (this.gamepadEverConnected) return;
@@ -1224,74 +1054,6 @@
                         this.overlay?.classList.toggle('debug');
                     });
                 }
-                /* Botão de permissão WebHID. Visível SEMPRE que WebHID é
-                   suportado mas não conectado — independente de haver gamepad
-                   via Gamepad API. Bug anterior: só mostrava quando NÃO havia
-                   gamepad, mas a Gamepad API sempre vê o controle, logo o botão
-                   nunca aparecia e WebHID nunca era ativado. */
-                setupHidConnect() {
-                    if (!this.hid.supported) {
-                        this._logDiag('WebHID não suportado neste CEF');
-                        return;
-                    }
-                    const btn = document.createElement('button');
-                    btn.className = 'hid-connect-btn';
-                    btn.textContent = 'Conectar WebHID (cura freeze)';
-                    btn.style.cssText = 'position:absolute;top:2px;right:2px;'
-                        + 'padding:3px 8px;background:rgba(136,101,241,0.9);'
-                        + 'color:#F2F2F2;border:1px solid #F2F2F2;border-radius:3px;'
-                        + 'cursor:pointer;font:700 10px system-ui;z-index:9999;'
-                        + 'display:block;';
-                    btn.addEventListener('click', async () => {
-                        btn.textContent = 'Conectando...';
-                        const ok = await this.hid.requestAndConnect();
-                        if (ok) {
-                            btn.style.display = 'none';
-                            this._logDiag('WebHID conectado');
-                            console.info('[bubo] WebHID conectado via gesture');
-                        } else {
-                            btn.textContent = 'Conectar WebHID (falhou — clique de novo)';
-                            this._logDiag('WebHID permissão falhou');
-                        }
-                    });
-                    this.overlay.appendChild(btn);
-                    this._hidBtn = btn;
-                    this.hid.onDisconnect(() => {
-                        if (this._hidBtn) {
-                            this._hidBtn.style.display = 'block';
-                            this._hidBtn.textContent = 'Conectar WebHID (reconectar)';
-                        }
-                    });
-                    this._logDiag('WebHID suportado — botão visível');
-                }
-                /* Log de diagnóstico visível no overlay (canto inferior esquerdo).
-                   Mostra estado do WebHID/Gamepad API pra depuração sem DevTools. */
-                _logDiag(msg) {
-                    if (!this._diagEl) {
-                        const el = document.createElement('div');
-                        el.style.cssText = 'position:absolute;bottom:1px;left:2px;'
-                            + 'color:#F2F2F2;background:rgba(13,13,13,0.85);'
-                            + 'font:700 9px system-ui;padding:1px 4px;border-radius:2px;'
-                            + 'z-index:9998;pointer-events:none;max-width:60%;'
-                            + 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-                        this.overlay.appendChild(el);
-                        this._diagEl = el;
-                    }
-                    this._diagMsg = msg;
-                    this._diagEl.textContent = '[bubo] ' + msg;
-                    console.info('[bubo] ' + msg);
-                }
-                /* Loop de poll híbrido: setInterval (imune a background throttling
-                   do CEF) + handlers de focus/visibility forçam re-poll imediato
-                   quando o OBS recupera foco — paliativo para quando WebHID não está ativo. */
-                _startPolling() {
-                    const POLL_MS = 16;
-                    this._pollTimer = setInterval(() => this.update(), POLL_MS);
-                    const forcePoll = () => { this.update(); };
-                    document.addEventListener('visibilitychange', forcePoll);
-                    window.addEventListener('focus', forcePoll);
-                    window.addEventListener('pageshow', forcePoll);
-                }
                 /* log de diagnóstico para ?gamepad=list.
                    Loga apenas quando o conjunto de gamepads muda (nunca a
                    cada frame). Mostra o ÍNDICE USADO PELO PARAM (?gamepad=N,
@@ -1324,12 +1086,6 @@
                 }
 
                 getGamepad() {
-                    /* WebHID primeiro — imune a background throttling do CEF. */
-                    const hidPad = this.hid?.getPad();
-                    if (hidPad) {
-                        if (this._hidBtn) this._hidBtn.style.display = 'none';
-                        return hidPad;
-                    }
                     const gp = navigator.getGamepads?.bind(navigator);
                     if (typeof gp !== 'function') return null;
                     const pads = Array.from(gp() || []).filter(g => g && g.buttons.length > 0);
@@ -1656,11 +1412,13 @@
                     this.updateAnalogState(gp);
                     this.updateControllerHint(gp);
                 }
-                /* Render loop: rAF só para desenho (triggers/trail). Poll de
-                   gamepad vive no setInterval (_startPolling) — imune a
-                   background throttling. update() é chamado pelos 2 caminhos
-                   (rAF + setInterval); é idempotente (lê estado, não acumula). */
+                /* Render loop: rAF chama update() (lê gamepad + atualiza estado)
+                   e depois desenha triggers/trail. Simples e direto — sem
+                   setInterval, sem handlers de foco. Bug de "freeze ao perder
+                   foco" era regressão OBS 33 (CEF 150 / WGI exige foco); cura =
+                   downgrade OBS 32.2 (CEF 127 / XInput lê sem foco). */
                 animate() {
+                    this.update();
                     if (!this.isArcade) {
                         this.drawTriggerGraph('lt');
                         this.drawTriggerGraph('rt');

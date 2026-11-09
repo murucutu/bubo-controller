@@ -4,9 +4,9 @@
 
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](LICENSE)
 [![Made for OBS](https://img.shields.io/badge/made%20for-OBS-9146FF.svg)](https://obsproject.com/)
-![Version](https://img.shields.io/badge/version-v1.2611.002-9146FF.svg)
+![Version](https://img.shields.io/badge/version-v1.2611.005-9146FF.svg)
 
-**Version:** `v1.2611.002` · **Scheme:** `v1.YYMM.XXX` (v1 = published · YYMM = build month · XXX = sprint number, resets monthly) — see [CHANGELOG.md](CHANGELOG.md).
+**Version:** `v1.2611.005` · **Scheme:** `v1.YYMM.XXX` (v1 = published · YYMM = build month · XXX = sprint number, resets monthly) — see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -432,45 +432,49 @@ The overlay working in a browser ≠ working in OBS. OBS's CEF (Chromium Embedde
 
 - `color-mix()` not supported → upgrade OBS (CEF 111+ required).
 - Gamepad not detected in OBS but works in browser → check OS-level gamepad permissions; on Windows, verify the controller in the Game Controllers control panel.
-- **Overlay freezes when OBS loses focus** → see [Background throttling](#background-throttling) below; ensure WebHID is connected (check console for `[bubo-hid] conectado`).
+- **Overlay freezes when OBS loses focus** → regressão do OBS 33 (CEF 150 / WGI); veja [OBS focus regression](#obs-focus-regression-cef-150--wgi) abaixo. Cura = downgrade para OBS 32.2.x.
 
 ---
 
-## Background throttling
+## OBS focus regression (CEF 150 / WGI)
 
-OBS's embedded Chromium (CEF) inherits Chrome's background throttling policy. When the OBS window loses foreground focus on Windows (e.g., you click a game on another monitor, or Alt+Tab to another app), the CEF:
+**Sintoma:** overlay congela quando o OBS perde foco de janela no Windows (você clica num jogo noutra tela, ou Alt+Tab pra outro app). Gamepad só volta a atualizar quando você clica na janela do OBS de novo.
 
-1. **Throttles `requestAnimationFrame`** — reduces from ~60fps to ~1fps or pauses entirely.
-2. **Stops updating Gamepad API state** — `navigator.getGamepads()` returns the object, but `buttons[].pressed` and `axes[]` freeze at the last value read before throttling.
+**Causa raiz:** regressão do **OBS 33.0.0** (issue [obsproject/obs-studio#14139](https://github.com/obsproject/obs-studio/issues/14139)).
 
-The result: the overlay stops reacting to controller input until you click the OBS window again. This is the bug that motivated the WebHID adapter (v1.2611.003).
+O OBS 33 atualizou o CEF (embedded Chromium) da versão 127 para 150. O Chromium 150 removeu o **XInput** (API legada do Windows que lê gamepad sem exigir foco de janela) e passou a usar **Windows.Gaming.Input (WGI)**, que **exige janela ativa em primeiro plano** pra pollar o SO. Quando o OBS perde foco, o backend WGI do CEF para de pollar — `navigator.getGamepads()` ainda retorna o objeto, mas `buttons[].pressed` e `axes[]` congelam no último valor lido.
 
-### The fix: WebHID + setInterval
+**NÃO é bug do overlay.** É regressão do OBS que afeta TODOS os overlays web de gamepad (gamepadviewer.com, e7d/gamepad-viewer, datkat21/ControllerOverlays — nenhum tem workaround no código). Setinterval, handlers `focus`/`visibilitychange`, WebHID e qualquer truque JS não curam porque o problema é o backend WGI do CEF parar de pollar o SO — não o JS.
 
-The overlay now uses two complementary layers:
+### A cura: downgrade para OBS 32.2.x
 
-1. **WebHID (primary)** — reads input reports via `device.addEventListener('inputreport', cb)`. HID events are **NOT affected by background throttling** — the overlay continues reading the controller even when OBS has no focus. Requires one-time permission (click "Conectar controle" button on the overlay, or auto-connects if you've authorized before).
+O OBS 32.2 usa CEF 127 (ainda com XInput forçado via flag). XInput lê o gamepad sem exigir foco — overlay funciona normalmente.
 
-2. **`setInterval` polling (paliative)** — replaces `requestAnimationFrame` for the gamepad read loop. `setInterval` is less aggressively throttled than rAF in some CEFs. Combined with `visibilitychange`/`focus` handlers that force an immediate re-poll on focus regain, this mitigates the freeze for CEFs without WebHID support.
+Passos:
 
-3. **Gamepad API (fallback)** — automatic when WebHID is unavailable or permission denied. Still vulnerable to throttling, but the setInterval + focus handlers reduce the impact.
+1. **Backup** das cenas/profiles: copia `%APPDATA%/obs-studio/basic/scenes/` e `%APPDATA%/obs-studio/basic/profiles/`.
+2. **Desinstala** o OBS 33 (não precisa apagar `%APPDATA%/obs-studio` — cenas/profiles ficam).
+3. **Baixa** o instalador do OBS 32.2.x: [GitHub releases](https://github.com/obsproject/obs-studio/releases/tag/32.2.0) → `OBS-Studio-32.2-Windows-Installer.exe`.
+4. **Instala** normalmente.
+5. **DESLIGA o auto-update** (Settings → General → "Automatically check for updates on startup" → OFF). Sem isso, na próxima abertura o OBS re-upgrade pra 33 e o bug volta silenciosamente.
+6. Testa: abre OBS, adiciona o overlay como Browser Source, tira foco da janela do OBS — gamepad deve continuar atualizando.
 
-### Verifying WebHID is active
+### Pegadinhas do downgrade
 
-Open the Browser Source console (right-click → Interact → Inspect Element → Console). You should see:
+- **Plugins compilados só pra OBS 33** podem não carregar em 32.2. Verifica os plugins críticos (obs-websocket, obs-ndi, AI TTS overlays etc.) — maioria tem build 32.2.
+- **Auto-update** ligado por default — esquecer de desligar faz o 33 voltar e o bug reaparecer sem explicação.
+- **Outros apps** podem segurar handles do diretório do OBS durante a reinstalação — fecha-os antes de instalar.
 
-```
-[bubo-hid] conectado: Xbox Controller (045e:02fd)
-[bubo] WebHID auto-conectado
-```
+### Alternativas sem downgrade
 
-If you see `[bubo] gamepad ativo: <id> — seleção: auto` instead, WebHID is NOT active and the overlay is using the Gamepad API (vulnerable to throttling). Click the "Conectar controle (WebHID)" button to switch.
+Nenhuma delas é tão limpa quanto o downgrade, mas existem:
 
-### Known limitations
+- **Firefox + Window Capture com color key** — roda o overlay num Firefox comum (fora do OBS), captura via Window Source e usa color key pra transparentar o fundo. Mais pesado na CPU.
+- **Esperar patch do OBS** — o maintainer WizardCM tem um branch com backport do XInput. Acompanhar a issue #14139.
 
-- WebHID requires HTTPS or `file://` (OBS Browser Source satisfies this).
-- WebHID requires a user gesture for the first connection (`requestDevice()`). Auto-connect works for previously-authorized devices.
-- The Xbox-standard report parser (report ID 0x03, 17 bytes) covers most Xbox-compatible controllers. DualSense and some fight sticks use different report formats — for those, the Gamepad API fallback is more reliable (but vulnerable to throttling).
+### Por que WebHID não funciona aqui
+
+Uma tentativa anterior (v1.2611.003–004) implementou WebHID como "cura". **Falhou estruturalmente**: o OBS Browser Source roda em modo OSR (off-screen rendering) sem janela nativa, e o chooser de permissão WebHID (`navigator.hid.requestDevice()`) precisa de uma janela nativa pra ser exibido. Sem janela, o chooser nunca aparece e `requestDevice()` dead-ends sem erro. WebUSB/WebSerial/WebBluetooth sofrem do mesmo problema (CEF issue #2847). O código WebHID foi removido em v1.2611.005.
 
 ---
 
@@ -494,7 +498,7 @@ Open an issue with: OBS version, OS, controller (model + USB/Bluetooth), the Bro
 
 ### What NOT to contribute
 
-- **WebHID** — was removed for "stability reasons" but that decision was **reverted in v1.2611.003**. The Gamepad API is vulnerable to CEF background throttling (the overlay freezes when OBS loses window focus — see [Background throttling](#background-throttling)). WebHID reads input reports via event, which is NOT affected by throttling. The adapter is now the primary layer, with Gamepad API as automatic fallback for CEFs without WebHID support or when permission is denied.
+- **WebHID** — não funciona no OBS Browser Source. O OSR (off-screen rendering) não tem janela nativa, então o chooser de permissão (`navigator.hid.requestDevice()`) nunca aparece e a chamada dead-ends. Mesmo problema com WebUSB/WebSerial/WebBluetooth (CEF issue #2847). Veja [OBS focus regression](#obs-focus-regression-cef-150--wgi) pra explicação completa.
 - **Build pipelines** — the single-file HTML constraint is intentional. If you need a build, do it as a separate fork.
 - **External dependencies** — no npm packages, no CDNs, no fonts from Google Fonts. The overlay must run offline, from `file://`.
 - **Brand-protected art** — no Sony/Microsoft/Nintendo logos or trademarked icons. Use generic shapes.
@@ -510,7 +514,7 @@ By contributing, you agree that your contributions are licensed under [The Unlic
 These are the project's hard constraints. A change that violates any of them is a defect, even if it "works":
 
 1. **Single-file HTML** — `index.html` is the only runtime file. All HTML, CSS, and JS are inline. No `<link>`, no `<script src=>` to local files. Must run from `file://` without a server.
-2. **WebHID primary, Gamepad API fallback** — WebHID reads input reports via event (immune to CEF background throttling); Gamepad API is automatic fallback when WebHID is unavailable or permission denied. See [Background throttling](#background-throttling).
+2. **Standard Gamepad API only** — overlay lê `navigator.getGamepads()` no `requestAnimationFrame`. Simples, sem paliativos (setInterval, WebHID, focus handlers). Bug de "freeze ao perder foco" é regressão OBS 33 (CEF 150/WGI exige foco) e se cura com downgrade OBS 32.2 — não há workaround no JS. Veja [OBS focus regression](#obs-focus-regression-cef-150--wgi).
 3. **No build pipelines, no external dependencies** — no npm, bundlers, transpilers, CDNs, or external fonts. Dev tooling is fine as long as it's never required to *run* the overlay; a build step that *produces* `index.html` is forbidden.
 4. **No brand-protected art** — generic shapes only; users add their own branded art locally.
 5. **SVG blueprints inline** — all layouts are `<template>` SVGs cloned at runtime, with positions coming from the SVG itself (not CSS-positioned HTML).
