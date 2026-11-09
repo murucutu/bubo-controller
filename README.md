@@ -4,9 +4,9 @@
 
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](LICENSE)
 [![Made for OBS](https://img.shields.io/badge/made%20for-OBS-9146FF.svg)](https://obsproject.com/)
-![Version](https://img.shields.io/badge/version-v1.2611.005-9146FF.svg)
+![Version](https://img.shields.io/badge/version-v1.2611.006-9146FF.svg)
 
-**Version:** `v1.2611.005` · **Scheme:** `v1.YYMM.XXX` (v1 = published · YYMM = build month · XXX = sprint number, resets monthly) — see [CHANGELOG.md](CHANGELOG.md).
+**Version:** `v1.2611.006` · **Scheme:** `v1.YYMM.XXX` (v1 = published · YYMM = build month · XXX = sprint number, resets monthly) — see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -432,49 +432,49 @@ The overlay working in a browser ≠ working in OBS. OBS's CEF (Chromium Embedde
 
 - `color-mix()` not supported → upgrade OBS (CEF 111+ required).
 - Gamepad not detected in OBS but works in browser → check OS-level gamepad permissions; on Windows, verify the controller in the Game Controllers control panel.
-- **Overlay freezes when OBS loses focus** → regressão do OBS 33 (CEF 150 / WGI); veja [OBS focus regression](#obs-focus-regression-cef-150--wgi) abaixo. Cura = downgrade para OBS 32.2.x.
+- **Overlay freezes when OBS loses focus** → OBS 33 regression (CEF 150 / WGI); see [OBS focus regression](#obs-focus-regression-cef-150--wgi) below. Fix = downgrade to OBS 32.2.x.
 
 ---
 
 ## OBS focus regression (CEF 150 / WGI)
 
-**Sintoma:** overlay congela quando o OBS perde foco de janela no Windows (você clica num jogo noutra tela, ou Alt+Tab pra outro app). Gamepad só volta a atualizar quando você clica na janela do OBS de novo.
+**Symptom:** the overlay freezes when the OBS window loses focus on Windows (you click a game on another monitor, or Alt+Tab to another app). The gamepad only updates again when you click the OBS window back.
 
-**Causa raiz:** regressão do **OBS 33.0.0** (issue [obsproject/obs-studio#14139](https://github.com/obsproject/obs-studio/issues/14139)).
+**Root cause:** a **regression in OBS 33.0.0** (issue [obsproject/obs-studio#14139](https://github.com/obsproject/obs-studio/issues/14139)).
 
-O OBS 33 atualizou o CEF (embedded Chromium) da versão 127 para 150. O Chromium 150 removeu o **XInput** (API legada do Windows que lê gamepad sem exigir foco de janela) e passou a usar **Windows.Gaming.Input (WGI)**, que **exige janela ativa em primeiro plano** pra pollar o SO. Quando o OBS perde foco, o backend WGI do CEF para de pollar — `navigator.getGamepads()` ainda retorna o objeto, mas `buttons[].pressed` e `axes[]` congelam no último valor lido.
+OBS 33 upgraded its embedded Chromium (CEF) from 127 to 150. Chromium 150 dropped **XInput** (the legacy Windows API that reads gamepads without requiring window focus) in favor of **Windows.Gaming.Input (WGI)**, which **requires the window to be in the foreground** to poll the OS. When OBS loses focus, the CEF's WGI backend stops polling — `navigator.getGamepads()` still returns the object, but `buttons[].pressed` and `axes[]` freeze at the last values read.
 
-**NÃO é bug do overlay.** É regressão do OBS que afeta TODOS os overlays web de gamepad (gamepadviewer.com, e7d/gamepad-viewer, datkat21/ControllerOverlays — nenhum tem workaround no código). Setinterval, handlers `focus`/`visibilitychange`, WebHID e qualquer truque JS não curam porque o problema é o backend WGI do CEF parar de pollar o SO — não o JS.
+**This is not an overlay bug.** It is an OBS regression that affects ALL web gamepad overlays (gamepadviewer.com, e7d/gamepad-viewer, datkat21/ControllerOverlays — none has a code-level workaround). `setInterval`, `focus`/`visibilitychange` handlers, WebHID, and any other JS technique cannot fix it, because the problem is the CEF's input backend no longer polling the OS — not the page's JavaScript.
 
-### A cura: downgrade para OBS 32.2.x
+### The fix: downgrade to OBS 32.2.x
 
-O OBS 32.2 usa CEF 127 (ainda com XInput forçado via flag). XInput lê o gamepad sem exigir foco — overlay funciona normalmente.
+OBS 32.2 uses CEF 127 (still with XInput forced via a flag). XInput reads the gamepad without requiring focus — the overlay works normally.
 
-Passos:
+Steps:
 
-1. **Backup** das cenas/profiles: copia `%APPDATA%/obs-studio/basic/scenes/` e `%APPDATA%/obs-studio/basic/profiles/`.
-2. **Desinstala** o OBS 33 (não precisa apagar `%APPDATA%/obs-studio` — cenas/profiles ficam).
-3. **Baixa** o instalador do OBS 32.2.x: [GitHub releases](https://github.com/obsproject/obs-studio/releases/tag/32.2.0) → `OBS-Studio-32.2-Windows-Installer.exe`.
-4. **Instala** normalmente.
-5. **DESLIGA o auto-update** (Settings → General → "Automatically check for updates on startup" → OFF). Sem isso, na próxima abertura o OBS re-upgrade pra 33 e o bug volta silenciosamente.
-6. Testa: abre OBS, adiciona o overlay como Browser Source, tira foco da janela do OBS — gamepad deve continuar atualizando.
+1. **Back up** your scenes/profiles: copy `%APPDATA%\obs-studio\basic\scenes\` and `%APPDATA%\obs-studio\basic\profiles\`.
+2. **Uninstall** OBS 33 (no need to delete `%APPDATA%\obs-studio` — scenes/profiles survive).
+3. **Download** the OBS 32.2.x installer: [GitHub releases](https://github.com/obsproject/obs-studio/releases/tag/32.2.0) → `OBS-Studio-32.2-Windows-Installer.exe`.
+4. **Install** normally.
+5. **Disable auto-update** (Settings → General → "Automatically check for updates on startup" → OFF). Otherwise OBS silently re-upgrades to 33 on the next launch and the bug returns.
+6. Test: open OBS, add the overlay as a Browser Source, take focus away from the OBS window — the gamepad should keep updating.
 
-### Pegadinhas do downgrade
+### Downgrade pitfalls
 
-- **Plugins compilados só pra OBS 33** podem não carregar em 32.2. Verifica os plugins críticos (obs-websocket, obs-ndi, AI TTS overlays etc.) — maioria tem build 32.2.
-- **Auto-update** ligado por default — esquecer de desligar faz o 33 voltar e o bug reaparecer sem explicação.
-- **Outros apps** podem segurar handles do diretório do OBS durante a reinstalação — fecha-os antes de instalar.
+- **Plugins compiled for OBS 33 only** may fail to load in 32.2. Check your critical plugins (obs-websocket, obs-ndi, AI TTS overlays, etc.) — most have 32.2 builds.
+- **Auto-update is on by default** — forgetting to disable it brings 33 back and the bug reappears without explanation.
+- **Other applications** (e.g. local AI runtimes) may hold file handles on the OBS directory during reinstall — close them before installing.
 
-### Alternativas sem downgrade
+### Alternatives without a downgrade
 
-Nenhuma delas é tão limpa quanto o downgrade, mas existem:
+None is as clean as the downgrade, but they exist:
 
-- **Firefox + Window Capture com color key** — roda o overlay num Firefox comum (fora do OBS), captura via Window Source e usa color key pra transparentar o fundo. Mais pesado na CPU.
-- **Esperar patch do OBS** — o maintainer WizardCM tem um branch com backport do XInput. Acompanhar a issue #14139.
+- **Firefox + Window Capture with a color key** — run the overlay in a regular Firefox window (outside OBS), capture it via a Window source, and use a color key to make the background transparent. Heavier on the CPU.
+- **Wait for an OBS patch** — the maintainer WizardCM has a branch with an XInput backport. Follow issue #14139.
 
-### Por que WebHID não funciona aqui
+### Why WebHID cannot work here
 
-Uma tentativa anterior (v1.2611.003–004) implementou WebHID como "cura". **Falhou estruturalmente**: o OBS Browser Source roda em modo OSR (off-screen rendering) sem janela nativa, e o chooser de permissão WebHID (`navigator.hid.requestDevice()`) precisa de uma janela nativa pra ser exibido. Sem janela, o chooser nunca aparece e `requestDevice()` dead-ends sem erro. WebUSB/WebSerial/WebBluetooth sofrem do mesmo problema (CEF issue #2847). O código WebHID foi removido em v1.2611.005.
+A previous attempt (v1.2611.003–004) implemented WebHID as the "fix". **It failed structurally:** the OBS Browser Source runs in OSR (off-screen rendering) mode with no native window, and the WebHID permission chooser (`navigator.hid.requestDevice()`) requires a native window to be displayed. With no window, the chooser never appears and `requestDevice()` dead-ends without an error. WebUSB/WebSerial/WebBluetooth share the same problem (CEF issue #2847). The WebHID code was removed in v1.2611.005.
 
 ---
 
@@ -498,7 +498,7 @@ Open an issue with: OBS version, OS, controller (model + USB/Bluetooth), the Bro
 
 ### What NOT to contribute
 
-- **WebHID** — não funciona no OBS Browser Source. O OSR (off-screen rendering) não tem janela nativa, então o chooser de permissão (`navigator.hid.requestDevice()`) nunca aparece e a chamada dead-ends. Mesmo problema com WebUSB/WebSerial/WebBluetooth (CEF issue #2847). Veja [OBS focus regression](#obs-focus-regression-cef-150--wgi) pra explicação completa.
+- **WebHID** — cannot work in an OBS Browser Source. OSR (off-screen rendering) has no native window, so the permission chooser (`navigator.hid.requestDevice()`) never appears and the call dead-ends. Same problem with WebUSB/WebSerial/WebBluetooth (CEF issue #2847). See [OBS focus regression](#obs-focus-regression-cef-150--wgi) for the full explanation.
 - **Build pipelines** — the single-file HTML constraint is intentional. If you need a build, do it as a separate fork.
 - **External dependencies** — no npm packages, no CDNs, no fonts from Google Fonts. The overlay must run offline, from `file://`.
 - **Brand-protected art** — no Sony/Microsoft/Nintendo logos or trademarked icons. Use generic shapes.
@@ -514,7 +514,7 @@ By contributing, you agree that your contributions are licensed under [The Unlic
 These are the project's hard constraints. A change that violates any of them is a defect, even if it "works":
 
 1. **Single-file HTML** — `index.html` is the only runtime file. All HTML, CSS, and JS are inline. No `<link>`, no `<script src=>` to local files. Must run from `file://` without a server.
-2. **Standard Gamepad API only** — overlay lê `navigator.getGamepads()` no `requestAnimationFrame`. Simples, sem paliativos (setInterval, WebHID, focus handlers). Bug de "freeze ao perder foco" é regressão OBS 33 (CEF 150/WGI exige foco) e se cura com downgrade OBS 32.2 — não há workaround no JS. Veja [OBS focus regression](#obs-focus-regression-cef-150--wgi).
+2. **Standard Gamepad API only** — the overlay reads `navigator.getGamepads()` in a `requestAnimationFrame` loop. Simple, no palliatives (no `setInterval`, no WebHID, no focus handlers). The "freeze on focus loss" bug is an OBS 33 regression (CEF 150/WGI requires focus) and is fixed by downgrading to OBS 32.2 — there is no JS-level workaround. See [OBS focus regression](#obs-focus-regression-cef-150--wgi).
 3. **No build pipelines, no external dependencies** — no npm, bundlers, transpilers, CDNs, or external fonts. Dev tooling is fine as long as it's never required to *run* the overlay; a build step that *produces* `index.html` is forbidden.
 4. **No brand-protected art** — generic shapes only; users add their own branded art locally.
 5. **SVG blueprints inline** — all layouts are `<template>` SVGs cloned at runtime, with positions coming from the SVG itself (not CSS-positioned HTML).
