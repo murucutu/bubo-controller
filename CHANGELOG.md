@@ -11,6 +11,30 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). This is the 
 
 ---
 
+## [v1.2611.004] — 2026-11-09
+
+Hotfix — WebHID nunca era ativado porque o botão de permissão nunca aparecia.
+
+### Bug
+
+O botão "Conectar controle (WebHID)" só aparecia quando **não** havia gamepad detectado (após 5s de hint delay). Mas a Gamepad API **sempre** vê o controle (é por isso que o overlay funciona quando o OBS tem foco). Logo:
+
+1. Overlay carrega → Gamepad API detecta o controle → overlay funciona com foco
+2. WebHID auto-connect falha (usuário nunca autorizou antes)
+3. Botão "Conectar" **nunca aparecia** (porque `gamepadEverConnected = true`)
+4. Overlay ficava 100% na Gamepad API → vulnerável a throttling → congela ao perder foco
+
+A Sprint 003 não teve efeito porque o usuário nunca teve chance de ativar o WebHID. Comportamento persistiu com Xbox Series e KROM Kumite fight stick no OBS 33.0.1.
+
+### Fix
+
+- **Botão WebHID visível SEMPRE** que WebHID é suportado mas não conectado — independente de haver gamepad via Gamepad API. Posicionado no canto superior direito (não cobre o overlay inteiro). Permite migrar da Gamepad API (vulnerável) para WebHID (imune) mesmo com o controle já funcionando parcialmente.
+- **Log de diagnóstico visível no overlay** (canto inferior esquerdo) — mostra estado em tempo real: "WebHID ativo", "Gamepad API (vulnerável) — clique Conectar WebHID", "WebHID não suportado neste CEF", etc. Elimina a dependência de DevTools (que no CEF do OBS é instável — WebSocket cai).
+- `updateControllerHint` não esconde mais o botão quando há gamepad via Gamepad API — só esconde quando WebHID conectou de fato.
+
+
+---
+
 ## [v1.2611.003] — 2026-11-09
 
 Background throttling fix — overlay no longer freezes when OBS loses window focus.

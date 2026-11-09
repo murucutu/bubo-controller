@@ -1063,16 +1063,23 @@
                         this.gamepadEverConnected = true;
                         this.lastGamepadSeenAt = performance.now();
                         this.hintElement.classList.remove('visible');
-                        if (this._hidBtn) this._hidBtn.style.display = 'none';
+                        /* Botão WebHID só some se WebHID conectou — senão
+                           continua visível pra migrar da Gamepad
+                           API (vulnerável a throttling) pro WebHID. */
+                        if (this.hid.getPad()) {
+                            if (this._hidBtn) this._hidBtn.style.display = 'none';
+                            this._logDiag('WebHID ativo — overlay imune a throttling');
+                        } else {
+                            this._logDiag(this.hid.supported
+                                ? 'Gamepad API (vulnerável) — clique "Conectar WebHID"'
+                                : 'Gamepad API (WebHID não suportado neste CEF)');
+                        }
                         return;
                     }
                     if (this.gamepadEverConnected) return;
                     const elapsed = performance.now() - this.lastGamepadSeenAt;
                     if (elapsed >= this.hintDelayMs) {
                         this.hintElement.classList.add('visible');
-                        if (this._hidBtn && this.hid.supported && !this.hid.getPad()) {
-                            this._hidBtn.style.display = 'block';
-                        }
                     }
                 }
                 setupTriggerOverlays() {
@@ -1217,24 +1224,62 @@
                         this.overlay?.classList.toggle('debug');
                     });
                 }
-                /* Botão invisível pra gesture de permissão WebHID.
-                   requestDevice() exige user gesture (click). O botão cobre o
-                   overlay inteiro, some quando WebHID conecta. */
+                /* Botão de permissão WebHID. Visível SEMPRE que WebHID é
+                   suportado mas não conectado — independente de haver gamepad
+                   via Gamepad API. Bug anterior: só mostrava quando NÃO havia
+                   gamepad, mas a Gamepad API sempre vê o controle, logo o botão
+                   nunca aparecia e WebHID nunca era ativado. */
                 setupHidConnect() {
-                    if (!this.hid.supported) return;
+                    if (!this.hid.supported) {
+                        this._logDiag('WebHID não suportado neste CEF');
+                        return;
+                    }
                     const btn = document.createElement('button');
                     btn.className = 'hid-connect-btn';
-                    btn.textContent = 'Conectar controle (WebHID)';
-                    btn.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;'
-                        + 'background:rgba(0,0,0,0.8);color:#F2F2F2;border:none;cursor:pointer;'
-                        + 'font:700 14px system-ui;z-index:9999;display:none;';
+                    btn.textContent = 'Conectar WebHID (cura freeze)';
+                    btn.style.cssText = 'position:absolute;top:2px;right:2px;'
+                        + 'padding:3px 8px;background:rgba(136,101,241,0.9);'
+                        + 'color:#F2F2F2;border:1px solid #F2F2F2;border-radius:3px;'
+                        + 'cursor:pointer;font:700 10px system-ui;z-index:9999;'
+                        + 'display:block;';
                     btn.addEventListener('click', async () => {
+                        btn.textContent = 'Conectando...';
                         const ok = await this.hid.requestAndConnect();
-                        if (ok) { btn.remove(); console.info('[bubo] WebHID conectado via gesture'); }
+                        if (ok) {
+                            btn.style.display = 'none';
+                            this._logDiag('WebHID conectado');
+                            console.info('[bubo] WebHID conectado via gesture');
+                        } else {
+                            btn.textContent = 'Conectar WebHID (falhou — clique de novo)';
+                            this._logDiag('WebHID permissão falhou');
+                        }
                     });
                     this.overlay.appendChild(btn);
                     this._hidBtn = btn;
-                    this.hid.onDisconnect(() => { if (this._hidBtn) this._hidBtn.style.display = 'block'; });
+                    this.hid.onDisconnect(() => {
+                        if (this._hidBtn) {
+                            this._hidBtn.style.display = 'block';
+                            this._hidBtn.textContent = 'Conectar WebHID (reconectar)';
+                        }
+                    });
+                    this._logDiag('WebHID suportado — botão visível');
+                }
+                /* Log de diagnóstico visível no overlay (canto inferior esquerdo).
+                   Mostra estado do WebHID/Gamepad API pra depuração sem DevTools. */
+                _logDiag(msg) {
+                    if (!this._diagEl) {
+                        const el = document.createElement('div');
+                        el.style.cssText = 'position:absolute;bottom:1px;left:2px;'
+                            + 'color:#F2F2F2;background:rgba(13,13,13,0.85);'
+                            + 'font:700 9px system-ui;padding:1px 4px;border-radius:2px;'
+                            + 'z-index:9998;pointer-events:none;max-width:60%;'
+                            + 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                        this.overlay.appendChild(el);
+                        this._diagEl = el;
+                    }
+                    this._diagMsg = msg;
+                    this._diagEl.textContent = '[bubo] ' + msg;
+                    console.info('[bubo] ' + msg);
                 }
                 /* Loop de poll híbrido: setInterval (imune a background throttling
                    do CEF) + handlers de focus/visibility forçam re-poll imediato
