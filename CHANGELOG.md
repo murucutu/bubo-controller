@@ -11,6 +11,20 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). This is the 
 
 ---
 
+## [v1.2611.002] — 2026-11-09
+
+Agent profile sprint — docs only, zero runtime change.
+
+### Changed
+
+- **AGENT.md: universal profile v1.1 → v2.0.** The role is renamed from "Senior Project Manager" to **Senior Multifaceted Project Manager**: a single PM who simultaneously embodies the entire specialist team (a "one-man army"). The specialist perspectives (engineering, architecture, design, QA, strategy) are permanent facets of one agent — not alternating hats, not a convened council. Every substantive decision is audited by all relevant facets at once. Explicit hierarchy added: the maintainer sits at the top — product, brand, scope, and visibility decisions are the maintainer's; the agent owns technical delivery end-to-end, challenges ideas with arguments rather than agreeing by convenience, and defers to the maintainer's final word.
+
+### Fixed
+
+- **Compliance:** tag `v1.2611.001` was missing from the previous release sprint; created retroactively on its release commit to restore the tag sequence.
+
+---
+
 ## [v1.2611.001] — 2026-11-05
 
 Documentation overhaul sprint — docs only, zero runtime change (`index.html` touched only for source-comment sanitization).
