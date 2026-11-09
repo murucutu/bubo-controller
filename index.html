@@ -6,7 +6,7 @@
     <title>Bubo Controller</title>
     <style>
         :root {
-            /* ═══ v1.2610.005 — New Xbox model, Umbral 95% bg, outline-only buttons ═══ */
+            /* ═══ New Xbox model, Umbral 95% bg, outline-only buttons ═══ */
             --overlay-width: 640px;
             --overlay-height: 216px;
             --scale: 1;
@@ -31,7 +31,7 @@
                trail-color-4 = Sol (mais velho, mais fraco, 0% alpha).
                O drawStickTrail faz a interpolação linear entre as 4 cores +
                alpha baseado em progresso (1 = mais novo, 0 = mais velho).
-               Sprint 007 fix: valores intermediários recalculados linearmente:
+               valores intermediários recalculados linearmente:
                Nox=#8865F1 (136,101,241) → Sol=#F165A4 (241,101,164)
                t=0.33: rgb(171,101,217) = #AB65D9
                t=0.67: rgb(207,101,189) = #CF65BD */
@@ -50,7 +50,7 @@
             --color-view: var(--accent);
             --color-menu: var(--accent);
             /* L3/R3 base = Nimbus 50% (knob fill when stick-click is active).
-               When pressed, the knob is filled with Nimbus 100% opaque (v1.2610.005). */
+               When pressed, the knob is filled with Nimbus 100% opaque. */
             --color-l3: var(--nimbus);
             --color-r3: var(--nimbus);
             /* Background opacity = 95% (single umbral background,
@@ -61,7 +61,7 @@
                color or Xbox scheme color, with 100% opacity (full fill). */
             --button-fill-opacity: 0;
             --button-pressed-opacity: 1;
-            /* Knob (L3/R3) base = Nimbus 50%; pressed = 100% (v1.2610.005). */
+            /* Knob (L3/R3) base = Nimbus 50%; pressed = 100%. */
             --knob-fill-opacity: 0.5;
             --knob-pressed-opacity: 1;
             --label-font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -80,17 +80,17 @@
             --stick-trail-blur: 12px;
             /* Trail radius = 1/3 do joy radius (joy r=24, trail r=8). */
             --stick-trail-radius: 8;
-            /* ═══ v1.2610.005 — Controller hint (no gamepad connected) ═══ */
+            /* ═══ Controller hint (no gamepad connected) ═══ */
             --hint-color: var(--nimbus);
             --hint-opacity: 0.6;
             --hint-font-weight: 900;
             --hint-size: 14px;
             --hint-delay-ms: 5000;
             --hint-transition-ms: 200;
-            /* v1.2610.008 — bottom gap positioning (27px reserved zone: 4.5 + 18 + 4.5 = 27) */
+            /* bottom gap positioning (27px reserved zone: 4.5 + 18 + 4.5 = 27) */
             --hint-height: 18px;
             --hint-bottom-gap: 4.5px;
-            /* ═══ v1.2610.005 — Trigger wave clip radius (viewBox units) ═══ */
+            /* ═══ Trigger wave clip radius (viewBox units) ═══ */
             --trigger-clip-radius: 9px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -116,14 +116,14 @@
         }
 
         /* ═══ BACKGROUND ═══
-           v1.2610.005: new xbox.svg draws the background as a <path id="BACKGROUND">
+           new xbox.svg draws the background as a <path id="BACKGROUND">
            that is a DIRECT child of the root group <g id="XBOX"> (not wrapped
-           in a <g transform> like v1.2610.004). The arcade template still uses a
+           in a <g transform> like ). The arcade template still uses a
            bare <rect>. We target all three shapes:
              1. <rect> as direct child of root (arcade template)
-             2. <path> inside first <g> child of root (v1.2610.004 xbox template)
-             3. <path#BACKGROUND> as direct child of root (v1.2610.005 xbox template)
-           Background fill = Umbral at 95% opacity (v1.2610.005).
+             2. <path> inside first <g> child of root (xbox template)
+             3. <path#BACKGROUND> as direct child of root (xbox template)
+           Background fill = Umbral at 95% opacity.
            The !important is REQUIRED because the button-fill rule
            `.controller-svg g[id] > :nth-child(1)` also matches the BACKGROUND
            path (it is :nth-child(1) of the root <g id="XBOX">); without
@@ -137,7 +137,7 @@
         }
 
         /* ═══ BUTTON STYLE ═══
-           v1.2610.005: each button <g> has 2 path children (created by
+           each button <g> has 2 path children (created by
            processSvg() splitting the ring into fill + outline):
              :nth-child(1) = FILL (outer-only solid path, invisible in idle,
                                    full color in pressed)
@@ -147,7 +147,7 @@
            Icons (.button-icon) are also nth-child(3)+ for VIEW/MENU. */
 
         /* nth-child(1) = button fill.
-           v1.2610.005: idle fill opacity = 0 (outline-only buttons).
+           idle fill opacity = 0 (outline-only buttons).
            fill-rule: nonzero renders the outer-only path as solid. */
         .controller-svg g[id] > :nth-child(1) {
             fill: var(--button-color, var(--accent)) !important;
@@ -156,12 +156,11 @@
             transition: fill-opacity 0.08s ease-out;
         }
         /* nth-child(2) = button outline (ring).
-           v1.2610.006: outline is COLORED by the per-button --button-color
+           outline is COLORED by the per-button --button-color
            (which resolves to --color-a/b/x/y for ABXY, defaulting to
            var(--accent) = Nimbus). When ?color=xbox is active, the ABXY
            colors (#4CAF50 green, #E5342A red, #0E7DC0 blue, #F2C200 amber)
-           appear in BOTH the outline AND the pressed fill (v1.2610.004
-           behavior). fill-rule: evenodd renders the
+           appear in BOTH the outline AND the pressed fill (behavior). fill-rule: evenodd renders the
            ring as an outline (inner is "hollow"). */
         .controller-svg g[id] > :nth-child(2) {
             fill: var(--button-color, var(--accent)) !important;
@@ -204,7 +203,7 @@
         }
 
         /* ═══ KNOBS ═══
-           v1.2610.004: Xbox knobs (left_joy=L3, right_joy=R3) use Nimbus 50%
+           Xbox knobs (left_joy=L3, right_joy=R3) use Nimbus 50%
            as the base fill (stick-click indicator), and Nimbus 95% (or the
            active color scheme) when pressed. Arcade knob: 100% always. */
         .controller-svg g#left_joy > :nth-child(1) {
@@ -236,13 +235,13 @@
             fill-opacity: 1;
         }
 
-        /* ═══ BOUNDARIES (JOY_REACH) — v1.2610.006 fix ═══
-           v1.2610.005 bug: the new Xbox SVG has reach groups with ONLY 1 path
+        /* ═══ BOUNDARIES (JOY_REACH) — fix ═══
+           bug: the new Xbox SVG has reach groups with ONLY 1 path
            (a ring: outer + inner subpaths). The old CSS rule
            `:nth-child(1) { fill: none }` was HIDING the reach (because the
            only path IS :nth-child(1)). The `:nth-child(2)` rule had nothing
            to match, so the reach outline was invisible.
-           v1.2610.006 fix: target reach paths by EXPLICIT ID (not attribute
+           target reach paths by EXPLICIT ID (not attribute
            selector) to beat the specificity of the button-fill rule
            `.controller-svg g[id] > :nth-child(1)`, which also matches the
            reach path (it IS :nth-child(1) of its group) and would override
@@ -282,10 +281,10 @@
             fill-opacity: 1;
         }
 
-        /* ═══ BUTTON ICONS (v1.2610.005 — VIEW/MENU; v1.2610.006 — hidden by default) ═══
+        /* ═══ BUTTON ICONS (VIEW/MENU; hidden by default) ═══
            Icons are embedded as <rect class="button-icon"> children of the
            button <g> (after the outline path, so they are nth-child(3)+).
-           v1.2610.006: HIDDEN BY DEFAULT (display: none); shown only when
+           HIDDEN BY DEFAULT (display: none); shown only when
            the ?viewmenu= URL argument is present. Show them by
            adding the `.show-viewmenu-icons` class to the overlay, which the
            JS does when `?viewmenu=1` is in the URL.
@@ -309,7 +308,7 @@
         }
 
         /* ═══ TRIGGER OVERLAYS (Xbox LT/RT) ═══
-           v1.2610.005: clip-path masks the wave canvas + fill to the trigger's
+           clip-path masks the wave canvas + fill to the trigger's
            rounded-rectangle shape (corner radius 9 viewBox units, computed
            from the new SVG's pill geometry after the parent <g> transform).
            This prevents the wave from leaking outside the trigger contour. */
@@ -344,7 +343,7 @@
         /* ═══ STICK TRAIL (Arcade) ═══ */
         .stick-trail-canvas {
             position: absolute; pointer-events: none;
-            /* Sprint 007: canvas na FRENTE do SVG (appendChild, não insertBefore).
+            /* canvas na FRENTE do SVG (appendChild, não insertBefore).
                Antes era atrás do SVG, e o bg 95% opaco TAPAR o trail. Agora
                o canvas cobre o SVG mas como é transparente (só desenha o
                trail), o SVG aparece através do canvas onde não tem trail. */
@@ -355,7 +354,7 @@
         .joy-knob-clone {
             position: absolute; pointer-events: none;
         }
-        /* Sprint 007: o clone do knob precisa ter as MESMAS regras CSS do
+        /* o clone do knob precisa ter as MESMAS regras CSS do
            knob original (fill Nimbus 100%). Como o clone está fora do
            .controller-svg, as regras existentes não se aplicam. Replica
            a regra g#joy > :nth-child(1) e :nth-child(2) pra o clone. */
@@ -376,14 +375,14 @@
             stroke: #ff00ff; stroke-width: 1;
         }
 
-        /* ═══ v1.2610.005 — CONTROLLER HINT (no gamepad connected) ═══
-           v1.2610.008 — repositioned to the bottom gap (27px reserved zone).
+        /* ═══ CONTROLLER HINT (no gamepad connected) ═══
+           repositioned to the bottom gap (27px reserved zone).
            Subtle text shown after --hint-delay-ms of no gamepad, hidden when
            a gamepad connects. Hidden permanently after first connection (does
            not reappear during a stream to avoid noise). Styled as simple
            text, weight 900 (Sofia Sans XC Black not available offline —
            system font fallback keeps the project dependency-free).
-           v1.2610.008: positioned in the bottom 27px gap (y=189→216 of the
+           positioned in the bottom 27px gap (y=189→216 of the
            216px-tall overlay) — the controller's bottom margin. The text
            sits in an 18px-tall band centered in the gap, leaving 4.5px above
            and 4.5px below (4.5 + 18 + 4.5 = 27). This avoids the hint
@@ -571,11 +570,11 @@
                 Official button colors (verified).
                 Xbox: A=green, B=red, X=blue, Y=amber.
                 PlayStation: Cross=blue, Circle=red, Square=pink, Triangle=green.
-                Sprint 007: Trail gradient SEMPRE Nox→Sol (paleta da marca),
+                Trail gradient SEMPRE Nox→Sol (paleta da marca),
                 independente de ?color. Só os botões ABXY mudam de cor.
             */
             const COLOR_SCHEMES = Object.freeze({
-                /* Sprint 007: trail SEMPRE usa Nox/Sol (paleta da marca), mesmo
+                /* trail SEMPRE usa Nox/Sol (paleta da marca), mesmo
                    com ?color=xbox ou ?color=playstation. Trail-color-* REMOVIDO
                    dos schemes — só as cores dos BOTÕES ABXY mudam. */
                 xbox: {
@@ -610,7 +609,7 @@
             }
             applyIconSet();
 
-            /* v1.2610.006 — ?viewmenu=1 shows the VIEW/MENU icons (hidden by
+            /* ?viewmenu=1 shows the VIEW/MENU icons (hidden by
                default). Any truthy value (1, true, yes)
                activates the icons. The CSS handles the actual display toggle
                via the `.show-viewmenu-icons` class on the overlay. */
@@ -632,6 +631,154 @@
             const ANALOG_DEAD_ZONE = 0.05;
             const clamp = (v, mn=0, mx=1) => Math.min(mx, Math.max(mn, v));
             const clampAxis = (v) => Math.min(1, Math.max(-1, v));
+
+            /* ═══ WebHID adapter — imuniza o overlay contra background throttling ═══
+               O CEF do OBS throttla requestAnimationFrame quando o OBS perde foco
+               de janela no Windows. A Gamepad API padrão só atualiza buttons/axes
+               quando a página está ativa — logo, o overlay congela quando o usuário clica em outra janela (ex.: o jogo numa outra tela).
+
+               WebHID lê input reports via EVENTO (device.addEventListener
+               'inputreport'), não via poll no rAF. Eventos HID não são afetados
+               pelo background throttling — o overlay continua lendo o controle
+               mesmo com o OBS sem foco.
+
+               Adapter expõe objeto compatível com a Gamepad API:
+               { id, buttons:[{pressed,value}], axes:[...] } — 16 buttons + 4 axes
+               (Xbox standard). updateGamepadState/updateAnalogState não mudam.
+
+               Fallback: se WebHID indisponível ou permissão negada, cai pra
+               Gamepad API (getGamepad() original). */
+
+            const XBOX_HID_USAGE_PAGE = 0x0001;  // Generic Desktop
+            const XBOX_HID_USAGE = 0x0005;       // Gamepad
+
+            class BuboHidAdapter {
+                constructor() {
+                    this.supported = !!(navigator.hid && typeof navigator.hid.requestDevice === 'function');
+                    this.device = null;
+                    this.pads = [];
+                    this._onDisconnect = null;
+                    if (this.supported) {
+                        navigator.hid.addEventListener('disconnect', (e) => {
+                            const gone = e.device;
+                            if (this.device === gone) {
+                                this.device = null;
+                                this.pads = [];
+                                console.info('[bubo-hid] dispositivo desconectado — cai pra Gamepad API');
+                                this._onDisconnect?.();
+                            }
+                        });
+                    }
+                }
+
+                /* Tenta reconectar a dispositivos já autorizados antes (sem prompt). */
+                async tryAutoConnect() {
+                    if (!this.supported) return false;
+                    try {
+                        const devices = await navigator.hid.getDevices();
+                        for (const d of devices) {
+                            if (await this._open(d)) return true;
+                        }
+                    } catch (e) {
+                        console.warn('[bubo-hid] autoConnect falhou:', e);
+                    }
+                    return false;
+                }
+
+                /* Pede permissão ao usuário (requer gesture — click no overlay). */
+                async requestAndConnect() {
+                    if (!this.supported) return false;
+                    try {
+                        const devices = await navigator.hid.requestDevice({
+                            filters: [{ usagePage: XBOX_HID_USAGE_PAGE, usage: XBOX_HID_USAGE }]
+                        });
+                        if (!devices || devices.length === 0) return false;
+                        return await this._open(devices[0]);
+                    } catch (e) {
+                        console.warn('[bubo-hid] requestDevice cancelado/falhou:', e);
+                        return false;
+                    }
+                }
+
+                async _open(device) {
+                    try {
+                        if (!device.opened) await device.open();
+                        device.addEventListener('inputreport', (e) => this._handleReport(e));
+                        this.device = device;
+                        this.pads = [this._makePad(device)];
+                        console.info(`[bubo-hid] conectado: ${device.productName || device.vendorId}:${device.productId}`);
+                        return true;
+                    } catch (e) {
+                        console.warn('[bubo-hid] open falhou:', e);
+                        return false;
+                    }
+                }
+
+                _makePad(device) {
+                    const pad = {
+                        id: `WebHID ${device.productName || 'Gamepad'} (${device.vendorId.toString(16).padStart(4,'0')}:${device.productId.toString(16).padStart(4,'0')})`,
+                        axes: [0, 0, 0, 0],
+                        buttons: Array.from({ length: 16 }, () => ({ pressed: false, value: 0 })),
+                        connected: true,
+                        mapping: 'standard',
+                        timestamp: performance.now(),
+                    };
+                    this._currentPad = pad;
+                    return pad;
+                }
+
+                /* Parse de input report Xbox-standard (report ID 0x03, 17 bytes).
+                   DualSense/Hori fight stick podem ter layouts diferentes — para
+                   esses, o fallback Gamepad API é mais confiável. */
+                _handleReport(e) {
+                    const { data, reportId } = e;
+                    const pad = this._currentPad;
+                    if (!pad) return;
+                    if (reportId !== 0x03 || data.byteLength < 17) return;
+
+                    const v = new DataView(data.buffer);
+                    const b1 = v.getUint8(1);
+                    const b2 = v.getUint8(2);
+                    const dpad = v.getUint8(3);
+                    const lt = v.getUint16(4, true);
+                    const rt = v.getUint16(6, true);
+                    const lx = v.getInt16(8, true);
+                    const ly = v.getInt16(10, true);
+                    const rx = v.getInt16(12, true);
+                    const ry = v.getInt16(14, true);
+
+                    const btn = pad.buttons;
+                    btn[0].pressed = btn[0].value = !!(b1 & 0x01);
+                    btn[1].pressed = btn[1].value = !!(b1 & 0x02);
+                    btn[2].pressed = btn[2].value = !!(b1 & 0x04);
+                    btn[3].pressed = btn[3].value = !!(b1 & 0x08);
+                    btn[4].pressed = btn[4].value = !!(b1 & 0x10);
+                    btn[5].pressed = btn[5].value = !!(b1 & 0x20);
+                    btn[6].pressed = lt > 0; btn[6].value = lt / 1023;
+                    btn[7].pressed = rt > 0; btn[7].value = rt / 1023;
+                    btn[8].pressed = btn[8].value = !!(b1 & 0x40);
+                    btn[9].pressed = btn[9].value = !!(b1 & 0x80);
+                    btn[10].pressed = btn[10].value = !!(b2 & 0x01);
+                    btn[11].pressed = btn[11].value = !!(b2 & 0x02);
+
+                    btn[12].pressed = btn[12].value = (dpad === 0 || dpad === 1 || dpad === 7);
+                    btn[13].pressed = btn[13].value = (dpad === 4 || dpad === 5 || dpad === 3);
+                    btn[14].pressed = btn[14].value = (dpad === 6 || dpad === 5 || dpad === 7);
+                    btn[15].pressed = btn[15].value = (dpad === 2 || dpad === 1 || dpad === 3);
+
+                    pad.axes[0] = lx / 32767;
+                    pad.axes[1] = ly / 32767;
+                    pad.axes[2] = rx / 32767;
+                    pad.axes[3] = ry / 32767;
+                    pad.timestamp = performance.now();
+                }
+
+                getPad() {
+                    return this.device && this._currentPad ? this._currentPad : null;
+                }
+
+                onDisconnect(fn) { this._onDisconnect = fn; }
+            }
 
             class BuboController {
                 constructor() {
@@ -655,18 +802,27 @@
                     this.dpadState = { up:false, down:false, left:false, right:false };
                     this.isArcade = false;
                     this.knobElements = [];
-                    /* v1.2610.005 — Controller hint (no gamepad connected) state */
                     this.hintElement = null;
                     this.gamepadEverConnected = false;
                     this.lastGamepadSeenAt = performance.now();
                     this.hintDelayMs = this.readVar('--hint-delay-ms', 5000);
-                    /* Add controller type class for CSS scoping (LT/RT no-fill = Xbox only). */
+                    /* WebHID adapter — imuniza contra background throttling do CEF.
+                       Fallback para Gamepad API se indisponível ou permissão negada. */
+                    this.hid = new BuboHidAdapter();
+                    this._pollTimer = null;
                     this.overlay.classList.add('controller-' + this.controllerType);
                     this.loadController();
                     this.setupControllerHint();
                     this.bindDebug();
+                    this.setupHidConnect();
+                    this._startPolling();
                     this.animate = this.animate.bind(this);
                     this.animate();
+                    /* Auto-conecta a dispositivos WebHID já autorizados antes.
+                       Se não houver, cai pra Gamepad API (silencioso). */
+                    this.hid.tryAutoConnect().then((ok) => {
+                        if (ok) console.info('[bubo] WebHID auto-conectado');
+                    });
                 }
                 readVar(name, fallback) {
                     const v = getComputedStyle(this.overlay).getPropertyValue(name).trim();
@@ -675,7 +831,7 @@
                 }
                 /* Resolve CSS variable to RGB via probe element.
                    Uses var(varName) so browser resolves the full chain.
-                   Sprint 007: aceita fallback (fb) explícito — se a var não
+                   aceita fallback (fb) explícito — se a var não
                    resolver (browser CEF/OBS, var() chains aninhadas, etc.),
                    retorna fb em vez de {r:255,g:255,b:255} (branco). */
                 parseCssVarToRgb(varName, fb = {r:255,g:255,b:255}) {
@@ -686,7 +842,7 @@
                     document.body.removeChild(probe);
                     const m = computed.match(/\d+/g);
                     if (!m || m.length < 3) return fb;
-                    /* Sprint 007 fix: se computed for 'rgba(0, 0, 0, 0)' (cor
+                    /* se computed for 'rgba(0, 0, 0, 0)' (cor
                        transparente default quando var não resolveu), usa fb. */
                     const r = parseInt(m[0],10), g = parseInt(m[1],10), b = parseInt(m[2],10);
                     if (r === 0 && g === 0 && b === 0) return fb;
@@ -732,7 +888,7 @@
                     this.svg.querySelectorAll('path, circle, rect').forEach(el => {
                         el.removeAttribute('fill');
                     });
-                    /* v1.2610.005 — New Xbox model: each button <g> has ONE <path>
+                    /* New Xbox model: each button <g> has ONE <path>
                        with 2 subpaths (outer + inner = ring/outline). The CSS expects
                        2 children per button:
                          :nth-child(1) = FILL (outer only, solid, invisible idle, full color pressed)
@@ -742,7 +898,7 @@
                        outer-only path as the fill (inserted before the original).
                        Skip: root group, background path, reach rings (they're
                        outlines-only, no fill — handled by CSS g[id$="_reach"] rule). */
-                    /* Sprint 007: added 'Arcade' to skip set — novo template do
+                    /* added 'Arcade' to skip set — novo template do
                        arcade usa <g id="Arcade" transform=...> como wrapper externo
                        (igual ao Xbox usa <g id="XBOX">). Sem isso, o processSvg
                        tentaria "splitar" o wrapper como se fosse um botão. */
@@ -780,7 +936,7 @@
                         const el = this.svg.querySelector('#' + id);
                         if (el) this.elements[id] = el;
                     });
-                    /* v1.2610.005 — L3/R3 labels alias to the joy knob elements
+                    /* L3/R3 labels alias to the joy knob elements
                        (the new Xbox SVG has <g id="left_joy"> and <g id="right_joy">
                        for the knobs, not <g id="l3">/<g id="r3">). Without this
                        alias, addLabels() would skip L3/R3 (the elements aren't
@@ -877,7 +1033,7 @@
                         g.appendChild(text);
                     });
                 }
-                /* v1.2610.005 — Setup the "no controller connected" hint.
+                /* Setup the "no controller connected" hint.
                    Creates a <div class="controller-hint"> inside the overlay,
                    bilingue (PT-BR for <html lang="pt">, EN default). The hint
                    is shown after --hint-delay-ms of no gamepad detection, and
@@ -899,7 +1055,7 @@
                     this.overlay.appendChild(hint);
                     this.hintElement = hint;
                 }
-                /* v1.2610.005 — Update hint visibility based on gamepad state.
+                /* Update hint visibility based on gamepad state.
                    Called from update() on every frame. */
                 updateControllerHint(gamepad) {
                     if (!this.hintElement) return;
@@ -907,13 +1063,16 @@
                         this.gamepadEverConnected = true;
                         this.lastGamepadSeenAt = performance.now();
                         this.hintElement.classList.remove('visible');
+                        if (this._hidBtn) this._hidBtn.style.display = 'none';
                         return;
                     }
-                    /* No gamepad: only show if never connected AND delay elapsed. */
                     if (this.gamepadEverConnected) return;
                     const elapsed = performance.now() - this.lastGamepadSeenAt;
                     if (elapsed >= this.hintDelayMs) {
                         this.hintElement.classList.add('visible');
+                        if (this._hidBtn && this.hid.supported && !this.hid.getPad()) {
+                            this._hidBtn.style.display = 'block';
+                        }
                     }
                 }
                 setupTriggerOverlays() {
@@ -960,7 +1119,7 @@
                     canvas.style.top = (bbox.y - padding) + 'px';
                     canvas.style.width = (bbox.width + padding * 2) + 'px';
                     canvas.style.height = (bbox.height + padding * 2) + 'px';
-                    /* Sprint 007 fix: o canvas precisa ficar na FRENTE do SVG
+                    /* o canvas precisa ficar na FRENTE do SVG
                        (pra o trail ser visível), mas o knob do joy precisa
                        ficar na frente do trail (pra o knob não ser coberto
                        pelo trail).
@@ -997,7 +1156,7 @@
                        do canvas. O updateKnob anima o original; o hook em
                        updateKnob espelha o transform no clone.
                        
-                       Sprint 007 v2 fix: o knob estava offset pra direita porque
+                       o knob estava offset pra direita porque
                        getBBox() falhava em elemento com visibility:hidden,
                        retornando {} (vazio). Agora usamos getGroupBBox (que
                        usa CTM e funciona mesmo com visibility:hidden) e
@@ -1058,7 +1217,37 @@
                         this.overlay?.classList.toggle('debug');
                     });
                 }
-                /* v1.2610.007 — log de diagnóstico para ?gamepad=list.
+                /* Botão invisível pra gesture de permissão WebHID.
+                   requestDevice() exige user gesture (click). O botão cobre o
+                   overlay inteiro, some quando WebHID conecta. */
+                setupHidConnect() {
+                    if (!this.hid.supported) return;
+                    const btn = document.createElement('button');
+                    btn.className = 'hid-connect-btn';
+                    btn.textContent = 'Conectar controle (WebHID)';
+                    btn.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;'
+                        + 'background:rgba(0,0,0,0.8);color:#F2F2F2;border:none;cursor:pointer;'
+                        + 'font:700 14px system-ui;z-index:9999;display:none;';
+                    btn.addEventListener('click', async () => {
+                        const ok = await this.hid.requestAndConnect();
+                        if (ok) { btn.remove(); console.info('[bubo] WebHID conectado via gesture'); }
+                    });
+                    this.overlay.appendChild(btn);
+                    this._hidBtn = btn;
+                    this.hid.onDisconnect(() => { if (this._hidBtn) this._hidBtn.style.display = 'block'; });
+                }
+                /* Loop de poll híbrido: setInterval (imune a background throttling
+                   do CEF) + handlers de focus/visibility forçam re-poll imediato
+                   quando o OBS recupera foco — paliativo para quando WebHID não está ativo. */
+                _startPolling() {
+                    const POLL_MS = 16;
+                    this._pollTimer = setInterval(() => this.update(), POLL_MS);
+                    const forcePoll = () => { this.update(); };
+                    document.addEventListener('visibilitychange', forcePoll);
+                    window.addEventListener('focus', forcePoll);
+                    window.addEventListener('pageshow', forcePoll);
+                }
+                /* log de diagnóstico para ?gamepad=list.
                    Loga apenas quando o conjunto de gamepads muda (nunca a
                    cada frame). Mostra o ÍNDICE USADO PELO PARAM (?gamepad=N,
                    que é a posição no array filtrado) e o id estável do USB. */
@@ -1074,7 +1263,7 @@
                     console.info('[bubo] Dica: ?gamepad=<índice> muda com a ordem de enumeração USB (instável entre boots). Prefira ?gamepad=<parte-do-id> (estável), ex: ?gamepad=hori');
                 }
 
-                /* v1.2610.007 — loga qual gamepad está ativo quando a seleção
+                /* loga qual gamepad está ativo quando a seleção
                    muda (uma linha por mudança, não por frame). Facilita ver no
                    console do OBS/Browser Source qual controle está mandando. */
                 _logSelectedGamepad(pad, why, raw) {
@@ -1090,16 +1279,22 @@
                 }
 
                 getGamepad() {
+                    /* WebHID primeiro — imune a background throttling do CEF. */
+                    const hidPad = this.hid?.getPad();
+                    if (hidPad) {
+                        if (this._hidBtn) this._hidBtn.style.display = 'none';
+                        return hidPad;
+                    }
                     const gp = navigator.getGamepads?.bind(navigator);
                     if (typeof gp !== 'function') return null;
                     const pads = Array.from(gp() || []).filter(g => g && g.buttons.length > 0);
                     if (pads.length === 0) return null;
-                    /* Sprint 007: ?gamepad=<N>|<id>|list escolhe qual gamepad usar.
+                    /* ?gamepad=<N>|<id>|list escolhe qual gamepad usar.
                        Sem o parâmetro, usa o primeiro encontrado (comportamento
                        original). Útil quando há múltiplos controles conectados
                        (ex: Fight Stick 1P + Xbox 2P para microfone).
 
-                       v1.2610.007 — 3 modos (o índice sozinho é INSTÁVEL):
+                       3 modos (o índice sozinho é INSTÁVEL):
                          ?gamepad=1      → índice 0-based. Segue a ordem de
                                           enumeração USB do Windows, que pode
                                           REORDENAR entre boots/portas/hubs
@@ -1117,7 +1312,7 @@
                                           para descobrir o id do Fight Stick.
                        Índice fora da lista atual (ex: gamepad=1 com só 1
                        gamepad visível) cai no fallback índice 0 (retrocompat
-                       com v1.2610.006 — evita overlay morto). */
+                       com evita overlay morto). */
                     const raw = String(getParam('gamepad', '') || '').trim();
                     let picked = null, why = 'auto (primeiro gamepad da lista)';
                     if (!raw) {
@@ -1222,7 +1417,7 @@
                     const oy = cy * maxOffset;
                     const newTransform = `translate(${ox} ${oy}) ${knob.originalTransform}`;
                     knob.el.setAttribute('transform', newTransform);
-                    /* Sprint 007: espelhar o transform no clone do joy (se
+                    /* espelhar o transform no clone do joy (se
                        existir). O clone é criado em setupStickTrail pra
                        ficar na frente do canvas (que está na frente do SVG
                        com bg 95% — sem o clone, o knob seria escondido pelo
@@ -1251,7 +1446,7 @@
                             this.stickTrail.shift();
                     }
                 }
-                /* Stick trail with Nox→Sol gradient + opacity 100%→0% (Sprint 007).
+                /* Stick trail with Nox→Sol gradient + opacity 100%→0%.
                    Antes era ABXY 4-color discrete segments com alpha sempre 1.
                    Agora interpola LINEARMENTE entre 4 cores (Nox, Nox↔Sol, Sol↔Nox, Sol)
                    + alpha proporcional ao progresso (1.0 = mais novo, 0.0 = mais velho).
@@ -1303,7 +1498,7 @@
                             ctx.moveTo(p1.x, p1.y);
                             ctx.lineTo(p2.x, p2.y);
                             ctx.strokeStyle = `rgba(${c.r},${c.g},${c.b},${c.a})`;
-                            /* Sprint 007: glow neon 3px difuso na mesma cor do
+                            /* glow neon 3px difuso na mesma cor do
                                trail em TODOS os segments (não só nos mais novos).
                                Antes era só t > 0.7 com blur 12px (gigante).
                                Agora 3px em todos — efeito "glow neon" sutil. */
@@ -1322,7 +1517,7 @@
                         ctx.beginPath();
                         ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
                         ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},${c.a})`;
-                        /* Sprint 007: glow neon 3px difuso em todos os circles
+                        /* glow neon 3px difuso em todos os circles
                            (igual aos segments — efeito "glow neon" sutil). */
                         ctx.shadowBlur = 3;
                         ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},${c.a})`;
@@ -1416,8 +1611,11 @@
                     this.updateAnalogState(gp);
                     this.updateControllerHint(gp);
                 }
+                /* Render loop: rAF só para desenho (triggers/trail). Poll de
+                   gamepad vive no setInterval (_startPolling) — imune a
+                   background throttling. update() é chamado pelos 2 caminhos
+                   (rAF + setInterval); é idempotente (lê estado, não acumula). */
                 animate() {
-                    this.update();
                     if (!this.isArcade) {
                         this.drawTriggerGraph('lt');
                         this.drawTriggerGraph('rt');

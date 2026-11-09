@@ -11,6 +11,39 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/). This is the 
 
 ---
 
+## [v1.2611.003] — 2026-11-09
+
+Background throttling fix — overlay no longer freezes when OBS loses window focus.
+
+### Problem
+
+The overlay stopped reacting to controller input whenever the OBS window lost foreground focus on Windows (e.g., clicking a game on another monitor, Alt+Tab to another app). Clicking the OBS window reactivated it. Root cause: OBS's embedded Chromium (CEF) inherits Chrome's background throttling policy — it throttles `requestAnimationFrame` and freezes Gamepad API state when the window loses focus.
+
+### Changed
+
+- **WebHID adapter added (primary layer).** New `BuboHidAdapter` class reads input reports via `device.addEventListener('inputreport', cb)`. HID events are NOT affected by background throttling — the overlay continues reading the controller even when OBS has no focus. The adapter exposes an object compatible with the Gamepad API (`{ id, buttons:[{pressed,value}], axes:[...] }` — 16 buttons + 4 axes, Xbox standard), so `updateGamepadState`/`updateAnalogState` are unchanged.
+- **WebHID permission flow.** `requestDevice()` requires a user gesture. A "Conectar controle (WebHID)" button covers the overlay, visible after the hint delay when no gamepad is detected. Auto-connect (`getDevices()`) handles previously-authorized devices without a prompt.
+- **Xbox-standard report parser.** Report ID 0x03 (17 bytes): buttons bitmap, D-pad hat, LT/RT uint16, 4 axes int16. DualSense/Hori fight stick use different formats — for those, the Gamepad API fallback is more reliable.
+- **`setInterval` polling replaces `requestAnimationFrame` for gamepad read.** `setInterval(16ms)` is less aggressively throttled than rAF in some CEFs. The `animate()` loop now only draws (triggers/trail); the `update()` poll lives in `setInterval`.
+- **`visibilitychange`/`focus`/`pageshow` handlers** force an immediate re-poll when OBS regains focus — covers the gap between the focus event and the next setInterval tick.
+- **Gamepad API is now the automatic fallback.** If WebHID is unavailable or permission is denied, `getGamepad()` falls back to `navigator.getGamepads()`. Still vulnerable to throttling, but the setInterval + focus handlers reduce the impact.
+
+### Reverted
+
+- **WebHID removal (v1.2610.009) reverted.** The "stability reasons" justification did not hold against the focus-freeze bug — WebHID was the solution, not the problem. README "What NOT to contribute" and "Architecture invariants" updated to reflect WebHID as the primary layer.
+
+### Docs
+
+- **README: new "Background throttling" section.** Explains the CEF throttling policy, the 3-layer fix (WebHID primary, setInterval paliative, Gamepad API fallback), how to verify WebHID is active via console, and known limitations (HTTPS/`file://` requirement, gesture requirement, Xbox-standard report format).
+- **README: "Common CEF-specific issues"** gains an entry pointing to the new section.
+- **ROADMAP: version drift fixed** (v1.2611.001 → v1.2611.003).
+
+### Code hygiene
+
+- **Comment archaeology sanitized.** 49 references to "Sprint NNN" / "v1.2610.00X" removed from `index.html` comments. History lives in CHANGELOG; code comments now describe the "what" and non-obvious "why" only. Zero behavioral change — JS validated via `node --check`.
+
+---
+
 ## [v1.2611.002] — 2026-11-09
 
 Agent profile sprint — docs only, zero runtime change.

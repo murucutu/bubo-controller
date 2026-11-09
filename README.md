@@ -432,6 +432,45 @@ The overlay working in a browser ≠ working in OBS. OBS's CEF (Chromium Embedde
 
 - `color-mix()` not supported → upgrade OBS (CEF 111+ required).
 - Gamepad not detected in OBS but works in browser → check OS-level gamepad permissions; on Windows, verify the controller in the Game Controllers control panel.
+- **Overlay freezes when OBS loses focus** → see [Background throttling](#background-throttling) below; ensure WebHID is connected (check console for `[bubo-hid] conectado`).
+
+---
+
+## Background throttling
+
+OBS's embedded Chromium (CEF) inherits Chrome's background throttling policy. When the OBS window loses foreground focus on Windows (e.g., you click a game on another monitor, or Alt+Tab to another app), the CEF:
+
+1. **Throttles `requestAnimationFrame`** — reduces from ~60fps to ~1fps or pauses entirely.
+2. **Stops updating Gamepad API state** — `navigator.getGamepads()` returns the object, but `buttons[].pressed` and `axes[]` freeze at the last value read before throttling.
+
+The result: the overlay stops reacting to controller input until you click the OBS window again. This is the bug that motivated the WebHID adapter (v1.2611.003).
+
+### The fix: WebHID + setInterval
+
+The overlay now uses two complementary layers:
+
+1. **WebHID (primary)** — reads input reports via `device.addEventListener('inputreport', cb)`. HID events are **NOT affected by background throttling** — the overlay continues reading the controller even when OBS has no focus. Requires one-time permission (click "Conectar controle" button on the overlay, or auto-connects if you've authorized before).
+
+2. **`setInterval` polling (paliative)** — replaces `requestAnimationFrame` for the gamepad read loop. `setInterval` is less aggressively throttled than rAF in some CEFs. Combined with `visibilitychange`/`focus` handlers that force an immediate re-poll on focus regain, this mitigates the freeze for CEFs without WebHID support.
+
+3. **Gamepad API (fallback)** — automatic when WebHID is unavailable or permission denied. Still vulnerable to throttling, but the setInterval + focus handlers reduce the impact.
+
+### Verifying WebHID is active
+
+Open the Browser Source console (right-click → Interact → Inspect Element → Console). You should see:
+
+```
+[bubo-hid] conectado: Xbox Controller (045e:02fd)
+[bubo] WebHID auto-conectado
+```
+
+If you see `[bubo] gamepad ativo: <id> — seleção: auto` instead, WebHID is NOT active and the overlay is using the Gamepad API (vulnerable to throttling). Click the "Conectar controle (WebHID)" button to switch.
+
+### Known limitations
+
+- WebHID requires HTTPS or `file://` (OBS Browser Source satisfies this).
+- WebHID requires a user gesture for the first connection (`requestDevice()`). Auto-connect works for previously-authorized devices.
+- The Xbox-standard report parser (report ID 0x03, 17 bytes) covers most Xbox-compatible controllers. DualSense and some fight sticks use different report formats — for those, the Gamepad API fallback is more reliable (but vulnerable to throttling).
 
 ---
 
@@ -455,7 +494,7 @@ Open an issue with: OBS version, OS, controller (model + USB/Bluetooth), the Bro
 
 ### What NOT to contribute
 
-- **WebHID** — removed for stability reasons; the Standard Gamepad API covers all realistic OBS overlay needs.
+- **WebHID** — was removed for "stability reasons" but that decision was **reverted in v1.2611.003**. The Gamepad API is vulnerable to CEF background throttling (the overlay freezes when OBS loses window focus — see [Background throttling](#background-throttling)). WebHID reads input reports via event, which is NOT affected by throttling. The adapter is now the primary layer, with Gamepad API as automatic fallback for CEFs without WebHID support or when permission is denied.
 - **Build pipelines** — the single-file HTML constraint is intentional. If you need a build, do it as a separate fork.
 - **External dependencies** — no npm packages, no CDNs, no fonts from Google Fonts. The overlay must run offline, from `file://`.
 - **Brand-protected art** — no Sony/Microsoft/Nintendo logos or trademarked icons. Use generic shapes.
@@ -471,7 +510,7 @@ By contributing, you agree that your contributions are licensed under [The Unlic
 These are the project's hard constraints. A change that violates any of them is a defect, even if it "works":
 
 1. **Single-file HTML** — `index.html` is the only runtime file. All HTML, CSS, and JS are inline. No `<link>`, no `<script src=>` to local files. Must run from `file://` without a server.
-2. **No WebHID** — Standard Gamepad API only.
+2. **WebHID primary, Gamepad API fallback** — WebHID reads input reports via event (immune to CEF background throttling); Gamepad API is automatic fallback when WebHID is unavailable or permission denied. See [Background throttling](#background-throttling).
 3. **No build pipelines, no external dependencies** — no npm, bundlers, transpilers, CDNs, or external fonts. Dev tooling is fine as long as it's never required to *run* the overlay; a build step that *produces* `index.html` is forbidden.
 4. **No brand-protected art** — generic shapes only; users add their own branded art locally.
 5. **SVG blueprints inline** — all layouts are `<template>` SVGs cloned at runtime, with positions coming from the SVG itself (not CSS-positioned HTML).

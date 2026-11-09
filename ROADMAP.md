@@ -2,7 +2,7 @@
 
 Public, high-level roadmap. There's no commitment to timelines — it's a statement of intent and a panel of opportunities for anyone who wants to pick them up.
 
-**Versioning:** `v1.YYMM.XXX` (see [CHANGELOG.md](CHANGELOG.md)). Current build: `v1.2611.001` (November 2026, Sprint 001).
+**Versioning:** `v1.YYMM.XXX` (see [CHANGELOG.md](CHANGELOG.md)). Current build: `v1.2611.003` (November 2026, Sprint 003).
 
 ---
 
